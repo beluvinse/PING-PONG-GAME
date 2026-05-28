@@ -1,6 +1,5 @@
 using UnityEngine;
 
-
 public class PaddleController : MonoBehaviour
 {
     [Header("References")]
@@ -12,7 +11,7 @@ public class PaddleController : MonoBehaviour
     [SerializeField] private BoxCollider playerServeArea;
 
     [Header("Serve")]
-    [SerializeField] private bool playerServe = false;
+    [SerializeField] private bool playerServe = true;
 
     [Header("Y Follow")]
     [SerializeField] private float yFollowSpeed = 6f;
@@ -25,7 +24,7 @@ public class PaddleController : MonoBehaviour
     [SerializeField] private float centerX = 90f;
 
     [SerializeField] private float maxTilt = 50f;
-    
+    [SerializeField] private float hitDistance = 0.35f;
     
     private Bounds bounds;
 
@@ -35,21 +34,83 @@ public class PaddleController : MonoBehaviour
 
     public Vector3 PaddleVelocity { get; private set; }
 
+    private void Start()
+    {
+        playerServe = true;
+    }
+
     private void Update()
     {
         SetupMovementArea();
         MovePaddle();
+        CheckBallHit();
         
         PaddleVelocity = (transform.position - lastPos) / Time.deltaTime;
         lastPos = transform.position;
+        
+        
+        if (Input.GetMouseButtonDown(1))
+        {
+            playerServe = true;
+        }
+        
+        if (Input.GetKeyDown(KeyCode.Space))
+        {
+            playerServe = false;
+        }
     }
-    
 
-    private void OnCollisionEnter(Collision other)
+    void CheckBallHit()
     {
-        playerServe = false;
+        if (!canHitBall)
+            return;
+
+        if (ballController == null)
+            return;
+
+        Vector3 closestPoint =
+            paddleCollider.ClosestPoint(
+                ballController.transform.position
+            );
+
+        float distance =
+            Vector3.Distance(
+                closestPoint,
+                ballController.transform.position
+            );
+       
+        if (distance > hitDistance)
+        {
+            return;
+        }   
+        Debug.Log("DISTANCE " + distance);
+        Debug.Log("HIT DISTANCE " + hitDistance);
+        // verificar que la pelota venga hacia nosotros
+        // if (ballController.Velocity.x > 0f)
+        //     return;
+
+        canHitBall = false;
+
+        ballController.Hit(
+            transform,
+            PaddleVelocity
+        );
+
+        Debug.Log("BALL HIT");
+
+        Invoke(nameof(ResetHit), 0.15f);
     }
 
+    public BoxCollider paddleCollider;
+
+    private void ResetHit()
+    {
+        canHitBall = true;
+    }
+
+    public bool canHitBall = true;
+
+    
     void SetupMovementArea()
     {
         if (!playerServe)
@@ -152,29 +213,17 @@ public class PaddleController : MonoBehaviour
         );
     }
 
-    void RotatePaddle()
+    private void RotatePaddle()
     {
-        float t =
-            Mathf.InverseLerp(
-                bounds.min.z,
-                bounds.max.z,
-                transform.position.z
-            );
-
-        float xRot =
-            Mathf.Lerp(
-                centerX + maxTilt,
-                centerX - maxTilt,
-                t
-            );
-
-        float yRot = Mathf.Lerp(
-            25f,
-            -25f,
-            t
-        );
+        var t = Mathf.InverseLerp(bounds.min.z, bounds.max.z, transform.position.z);
         
+        var centered = (t - 0.5f) * 2f;
+        var curved = Mathf.Sign(centered) * Mathf.Sqrt(Mathf.Abs(centered));
         
+        var curvedT = (curved + 1f) * 0.5f;
+        var xRot = Mathf.Lerp(centerX + maxTilt, centerX - maxTilt, curvedT);
+
+        var yRot = Mathf.Lerp(15f, -15f, t);
         
         paddleVisual.localRotation =
             Quaternion.Euler(
@@ -183,17 +232,4 @@ public class PaddleController : MonoBehaviour
                 90f
             );
     }
-    
-    private void OnTriggerEnter(Collider other)
-    {
-        BallController ball =
-            other.GetComponent<BallController>();
-
-        if (ball == null)
-            return;
-
-        ball.Hit(transform, PaddleVelocity);
-    }
-
-    public float PaddleSpin { get; set; }
 }

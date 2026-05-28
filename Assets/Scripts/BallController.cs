@@ -16,13 +16,10 @@ public class BallController : MonoBehaviour
     [Header("Bounce")]
     [SerializeField] private float bounceForce = 0.85f;
 
-    [Header("Arcade Feel")]
-    [SerializeField] private float upwardForce = 0.35f;
-    [SerializeField] private float sideForce = 2f;
-
 
     public float ballServePos;
     private Vector3 velocity;
+    public Vector3 Velocity => velocity;
 
     private bool waitingServe = true;
     private bool canHit = true;
@@ -49,7 +46,7 @@ public class BallController : MonoBehaviour
             OpponentServe();
         }
     }
-
+  
     private void OpponentServe()
     {
         waitingServe = false;
@@ -57,11 +54,12 @@ public class BallController : MonoBehaviour
         transform.position = opponentPaddle.position;
 
         Vector3 dir = Vector3.right;
-        dir.y = upwardForce;
-
+        dir.y = _serveY;
         dir.Normalize();
 
-        velocity = dir * speed;
+        velocity = dir * _serveSpeed;
+        
+        Debug.Log("OPPONENT velocity " + velocity);
     }
     
     void HandleServe()
@@ -110,164 +108,100 @@ public class BallController : MonoBehaviour
             pos.z > bounds.min.z &&
             pos.z < bounds.max.z;
     }
+    
 
-    private void OnTriggerEnter(Collider other)
+    [SerializeField] private float paddlePower;
+    
+    void Serve()
     {
-        PaddleController paddle =
-            other.GetComponent<PaddleController>();
+        var dir = Vector3.left;
+        dir.y = _serveY;
+        dir.Normalize();
 
-        if (paddle == null)
-            return;
-
-        if (!canHit)
-            return;
-
-        if (waitingServe)
-            waitingServe = false;
-        
-        //Hit(other.transform);
+        velocity = dir * _serveSpeed;
+        waitingServe = false;
     }
 
-    [SerializeField] private float paddlePower = 0.15f;
-    [SerializeField] private float minHitSpeed;
-    [SerializeField] private float maxHitSpeed;
+    public float _serveY = -0.15f;
+    public float _serveSpeed = 2f;
     
-    // public void Hit(Transform paddleTransform, Vector3 paddleVelocity)
-    // {
-    //     canHit = false;
-    //
-    //     Invoke(nameof(ResetHit), 0.08f);
-    //
-    //     PaddleController paddle =
-    //         paddleTransform.GetComponent<PaddleController>();
-    //
-    //     // snap adelante de la paleta
-    //     transform.position =
-    //         new Vector3(
-    //             paddleTransform.position.x - 0.2f,
-    //             transform.position.y,
-    //             transform.position.z
-    //         );
-    //
-    //     // direccion base
-    //     Vector3 dir = -paddleTransform.right;
-    //
-    //     // DIFERENCIA lateral entre pelota y paleta
-    //     float zOffset =
-    //         transform.position.z -
-    //         paddleTransform.position.z;
-    //
-    //     // agregar direccion lateral
-    //     dir.z =
-    //         Mathf.Clamp(
-    //             zOffset * sideForce,
-    //             -0.8f,
-    //             0.8f
-    //         );
-    //
-    //     // velocidad REAL de la paleta
-    //     Vector3 paddleVel =
-    //         paddle.PaddleVelocity;
-    //
-    //     // fuerza basada en movimiento
-    //     float extraPower =
-    //         paddleVel.magnitude * paddlePower;
-    //
-    //     Debug.Log("PADDLE VELOCITY MAGNITUDE " + paddleVel.magnitude);
-    //     
-    //     // velocidad final
-    //     float finalSpeed =
-    //         Mathf.Clamp(
-    //             speed + extraPower,
-    //             minHitSpeed,
-    //             maxHitSpeed
-    //         );
-    //
-    //     // lift vertical basado en movimiento
-    //     dir.y =
-    //         Mathf.Clamp(
-    //             upwardForce +
-    //             (paddleVel.y * 0.003f),
-    //             0.15f,
-    //             0.55f
-    //         );
-    //
-    //     // normalizar direccion
-    //     dir.Normalize();
-    //
-    //     // aplicar velocidad
-    //     velocity = dir * finalSpeed;
-    //
-    //     Debug.Log("DIR: " + dir);
-    //     Debug.Log("FINAL SPEED: " + finalSpeed);
-    //     Debug.Log("VELOCITY: " + velocity);
-    // }
     
+    public float maxZ = 1;
+
     public void Hit(Transform paddleTransform, Vector3 paddleVelocity)
     {
         if (!canHit)
             return;
 
+        if (waitingServe)
+        {
+            Serve();
+            return;
+        }
+
         canHit = false;
 
-        if (waitingServe)
-            waitingServe = false;
+        
+        transform.position = new Vector3(
+            paddleTransform.position.x - 0.2f,
+            transform.position.y,
+            transform.position.z
+        );
 
-        // snap adelante de la paleta
-        transform.position =
-            new Vector3(
-                paddleTransform.position.x - 0.2f,
-                transform.position.y,
-                transform.position.z
-            );
+        // TODO: this only works for the player, not the opponent
+        Vector3 dir = -paddleTransform.right;
 
-        // direccion base
-        Vector3 dir =
-            -paddleTransform.right;
+        
+        
+        
+        float normalized = paddleVelocity.magnitude / maxSpeed;
 
-        // direccion lateral
-        float zOffset =
-            transform.position.z -
-            paddleTransform.position.z;
+        normalized = Mathf.Sqrt(normalized);
 
-        dir.z =
-            Mathf.Clamp(
-                zOffset * sideForce,
-                -0.8f,
-                0.8f
-            );
+        float extraPower = Mathf.Lerp(0.05f, 0.5f, normalized);
+        
+        
+        var boundsCenter = tableCollider.bounds.center;
 
-        // potencia basada en velocidad del paddle
-        float extraPower =
-            Mathf.Abs(paddleVelocity.x) *
-            paddlePower;
+        float halfWidth = (tableCollider.bounds.max.x - tableCollider.bounds.min.x) * 0.5f;
 
-        float finalSpeed =
-            Mathf.Clamp(
-                speed + extraPower,
-                minHitSpeed,
-                maxHitSpeed
-            );
+        float distanceToNet = Mathf.Abs(paddleTransform.position.x - boundsCenter.x);
 
-        // lift vertical
-        dir.y =
-            Mathf.Clamp(
-                upwardForce +
-                (paddleVelocity.y * 0.003f),
-                0.15f,
-                0.55f
-            );
+      
+        float t = 1f - Mathf.Clamp01(distanceToNet / halfWidth);
+        
+        
+        float dynamicMaxZ = Mathf.Lerp(maxZ / 2, maxZ, t);
 
+        float side = Mathf.Clamp(paddleVelocity.z, -dynamicMaxZ, dynamicMaxZ);
+
+        dir.z = side;
+
+        Debug.Log("aaaaaaaaaaa PADDLE VELOCITY EN Z  " + paddleVelocity.z);
+        Debug.Log("aaaaaaaaaaa dynamic max z  " + dynamicMaxZ);
+        Debug.Log("aaaaaaaaaaa SIDE  " + side);
+        
+        
+        //TODO: explain what this does, 
+       //if the hit is closer to the net, the ball goes higher in the y direction, and a bit slower in speed
+       //and if the hit is further from the net, the ball has a lower y curve, and goes faster
+        dir.y = Mathf.Lerp(.4f, .6f, t);
+       
+        var baseSpeed = Mathf.Lerp(.5f, 2.4f, 1f - t);
+
+        Debug.Log("BASE SPEED " + baseSpeed);
+
+        var finalSpeed = baseSpeed + extraPower;
         dir.Normalize();
-
         velocity = dir * finalSpeed;
 
-        Debug.Log("PADDLE VEL: " + paddleVelocity);
+        Debug.Log("EXTRA POWER: " + extraPower);
+        Debug.Log("EXTRA PADDLE VELOCITY MAGNITUDE: " + paddleVelocity.magnitude);
         Debug.Log("FINAL SPEED: " + finalSpeed);
-        
+        Debug.Log("VELOCITY FINAL: " + velocity);
         StartCoroutine(ResetHit());
     }
-
+    
     private IEnumerator ResetHit()
     {
         yield return new WaitForSeconds(1f);
