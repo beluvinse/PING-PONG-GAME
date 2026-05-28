@@ -183,6 +183,7 @@ MonoBehaviour:
   paddleVisual: {fileID: 9143211934247762973}
   centerX: 90
   maxTilt: 50
+  _paddleMovement: 20
 --- !u!65 &95136187
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -297,7 +298,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 1974119335731460411, guid: b2b5ada8e9c44764b8a4f75580365e16, type: 3}
       propertyPath: speed
-      value: 2
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 1974119335731460411, guid: b2b5ada8e9c44764b8a4f75580365e16, type: 3}
       propertyPath: serveX
@@ -313,11 +314,15 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 1974119335731460411, guid: b2b5ada8e9c44764b8a4f75580365e16, type: 3}
       propertyPath: maxHitSpeed
-      value: 2.5
+      value: 5
       objectReference: {fileID: 0}
     - target: {fileID: 1974119335731460411, guid: b2b5ada8e9c44764b8a4f75580365e16, type: 3}
       propertyPath: minHitSpeed
-      value: 0.2
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 1974119335731460411, guid: b2b5ada8e9c44764b8a4f75580365e16, type: 3}
+      propertyPath: paddlePower
+      value: 0.9
       objectReference: {fileID: 0}
     - target: {fileID: 1974119335731460411, guid: b2b5ada8e9c44764b8a4f75580365e16, type: 3}
       propertyPath: tableHeight

@@ -38,15 +38,12 @@ public class PaddleController : MonoBehaviour
     private void Update()
     {
         SetupMovementArea();
-
         MovePaddle();
-    }
-
-    private void LateUpdate()
-    {
+        
         PaddleVelocity = (transform.position - lastPos) / Time.deltaTime;
         lastPos = transform.position;
     }
+    
 
     private void OnCollisionEnter(Collision other)
     {
@@ -106,10 +103,18 @@ public class PaddleController : MonoBehaviour
 
         point.y = GetTargetY();
 
-        transform.position = point;
+        //transform.position = point;
+        transform.position =
+            Vector3.Lerp(
+                transform.position,
+                point,
+                Time.deltaTime * _paddleMovement
+            );
 
         RotatePaddle();
     }
+
+    [SerializeField] private float _paddleMovement;
 
     float GetTargetY()
     {
@@ -177,6 +182,17 @@ public class PaddleController : MonoBehaviour
                 180f + yRot,
                 90f
             );
+    }
+    
+    private void OnTriggerEnter(Collider other)
+    {
+        BallController ball =
+            other.GetComponent<BallController>();
+
+        if (ball == null)
+            return;
+
+        ball.Hit(transform, PaddleVelocity);
     }
 
     public float PaddleSpin { get; set; }
