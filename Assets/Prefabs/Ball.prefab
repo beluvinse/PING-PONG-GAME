@@ -98,6 +98,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 3f3692cae727fd140a0606ef63c0ea63, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  _matchController: {fileID: 0}
   playerPaddle: {fileID: 0}
   opponentPaddle: {fileID: 0}
   tableCollider: {fileID: 0}
@@ -105,12 +106,11 @@ MonoBehaviour:
   gravity: 3.2
   maxSpeed: 3
   bounceForce: 0.85
-  upwardForce: 0.6
-  sideForce: 2
   ballServePos: 0.922
-  paddlePower: 0.6
+  paddlePower: 0.38
   _serveY: -0.2
   _serveSpeed: 2
+  maxZ: 0.6
 --- !u!135 &6902005455477080651
 SphereCollider:
   m_ObjectHideFlags: 0

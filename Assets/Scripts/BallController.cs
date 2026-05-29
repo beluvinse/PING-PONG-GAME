@@ -4,6 +4,7 @@ using UnityEngine;
 public class BallController : MonoBehaviour
 {
     [Header("References")]
+    [SerializeField] private MatchController _matchController;
     [SerializeField] private Transform playerPaddle;
     [SerializeField] private Transform opponentPaddle;
     [SerializeField] private BoxCollider tableCollider;
@@ -47,40 +48,32 @@ public class BallController : MonoBehaviour
         }
     }
   
+    //TODO: DELETE THIS
+    //HANDLE OPPONENT SERVE IN AIPADDLECONTROLLER
     private void OpponentServe()
     {
         waitingServe = false;
-
         transform.position = opponentPaddle.position;
-
         Vector3 dir = Vector3.right;
         dir.y = _serveY;
         dir.Normalize();
-
         velocity = dir * _serveSpeed;
-        
-        Debug.Log("OPPONENT velocity " + velocity);
     }
     
-    void HandleServe()
+    private void HandleServe()
     {
         velocity = Vector3.zero;
-        transform.position =
-            new Vector3(
-                ballServePos, // NO seguir X
-                playerPaddle.position.y,
-                playerPaddle.position.z
-            );
+        transform.position = new Vector3(ballServePos, playerPaddle.position.y, playerPaddle.position.z);
     }
 
-    void MoveBall()
+    private void MoveBall()
     {
         velocity.y -= gravity * Time.deltaTime;
         velocity = Vector3.ClampMagnitude(velocity, maxSpeed);
         transform.position += velocity * Time.deltaTime;
     }
 
-    void CheckTableBounce()
+    private void CheckTableBounce()
     {
         if (!IsAboveTable())
             return;
@@ -94,6 +87,15 @@ public class BallController : MonoBehaviour
         pos.y = tableY;
         transform.position = pos;
         velocity.y = Mathf.Abs(velocity.y) * bounceForce;
+
+        _matchController.RegisterBounce(CheckCurrentSide());
+    }
+
+    private MatchController.Side CheckCurrentSide()
+    {
+        var isPlayerSide = transform.position.x > tableCollider.bounds.center.x;
+        
+        return isPlayerSide? MatchController.Side.Player : MatchController.Side.AI;
     }
 
     bool IsAboveTable()
@@ -120,6 +122,7 @@ public class BallController : MonoBehaviour
 
         velocity = dir * _serveSpeed;
         waitingServe = false;
+        _matchController.SetBallServed();
     }
 
     public float _serveY = -0.15f;
@@ -129,82 +132,126 @@ public class BallController : MonoBehaviour
     public float maxZ = 1;
 
     public void Hit(Transform paddleTransform, Vector3 paddleVelocity)
+{
+    if (!canHit)
+        return;
+
+    if (waitingServe)
     {
-        if (!canHit)
-            return;
+        Serve();
+        return;
+    }
 
-        if (waitingServe)
-        {
-            Serve();
-            return;
-        }
+    canHit = false;
+    
+    var isPlayerSide = CheckCurrentSide() == MatchController.Side.Player;
+    
+    var hitOffset = isPlayerSide ? -0.2f : 0.2f;
 
-        canHit = false;
+    transform.position = new Vector3(
+        paddleTransform.position.x + hitOffset,
+        transform.position.y,
+        transform.position.z
+    );
 
-        
-        transform.position = new Vector3(
-            paddleTransform.position.x - 0.2f,
-            transform.position.y,
-            transform.position.z
+    // =========================
+    // DIRECCION BASE
+    // =========================
+
+    Vector3 dir;
+
+    if (isPlayerSide)
+    {
+        Debug.Log("PLAYER PEGA");
+        // player golpea hacia derecha
+        dir = Vector3.left;
+    }
+    else
+    {
+        Debug.Log("IA PEGA");
+        // IA golpea hacia izquierda
+        dir = Vector3.right;
+    }
+
+    // =========================
+    // POWER
+    // =========================
+
+    float normalized =
+        paddleVelocity.magnitude / maxSpeed;
+
+    normalized =
+        Mathf.Clamp01(normalized);
+
+    normalized =
+        Mathf.Sqrt(normalized);
+
+    float extraPower =
+        Mathf.Lerp(
+            0.05f,
+            0.5f,
+            normalized
         );
 
-        // TODO: this only works for the player, not the opponent
-        Vector3 dir = -paddleTransform.right;
+    // =========================
+    // DISTANCIA AL NET
+    // =========================
 
-        
-        
-        
-        float normalized = paddleVelocity.magnitude / maxSpeed;
+    var boundsCenter =
+        tableCollider.bounds.center;
 
-        normalized = Mathf.Sqrt(normalized);
+    float halfWidth =
+        (tableCollider.bounds.max.x -
+         tableCollider.bounds.min.x) * 0.5f;
 
-        float extraPower = Mathf.Lerp(0.05f, 0.5f, normalized);
-        
-        
-        var boundsCenter = tableCollider.bounds.center;
+    float distanceToNet =
+        Mathf.Abs(
+            paddleTransform.position.x -
+            boundsCenter.x
+        );
 
-        float halfWidth = (tableCollider.bounds.max.x - tableCollider.bounds.min.x) * 0.5f;
+    float t =
+        1f -
+        Mathf.Clamp01(
+            distanceToNet / halfWidth
+        );
 
-        float distanceToNet = Mathf.Abs(paddleTransform.position.x - boundsCenter.x);
+    float dynamicMaxZ =
+        Mathf.Lerp(
+            maxZ / 2f,
+            maxZ,
+            t
+        );
 
-      
-        float t = 1f - Mathf.Clamp01(distanceToNet / halfWidth);
-        
-        
-        float dynamicMaxZ = Mathf.Lerp(maxZ / 2, maxZ, t);
+    float side =
+        Mathf.Clamp(
+            paddleVelocity.z,
+            -dynamicMaxZ,
+            dynamicMaxZ
+        );
 
-        float side = Mathf.Clamp(paddleVelocity.z, -dynamicMaxZ, dynamicMaxZ);
+    dir.z = side;
 
-        dir.z = side;
+    dir.y = Mathf.Lerp(.4f, .6f, t);
+    
+    var baseSpeed = Mathf.Lerp(.5f, 2.4f, 1f - t);
 
-        Debug.Log("aaaaaaaaaaa PADDLE VELOCITY EN Z  " + paddleVelocity.z);
-        Debug.Log("aaaaaaaaaaa dynamic max z  " + dynamicMaxZ);
-        Debug.Log("aaaaaaaaaaa SIDE  " + side);
-        
-        
-        //TODO: explain what this does, 
-       //if the hit is closer to the net, the ball goes higher in the y direction, and a bit slower in speed
-       //and if the hit is further from the net, the ball has a lower y curve, and goes faster
-        dir.y = Mathf.Lerp(.4f, .6f, t);
-       
-        var baseSpeed = Mathf.Lerp(.5f, 2.4f, 1f - t);
+    var finalSpeed = baseSpeed + extraPower;
+    
+    dir.Normalize();
 
-        Debug.Log("BASE SPEED " + baseSpeed);
+    velocity = dir * finalSpeed;
 
-        var finalSpeed = baseSpeed + extraPower;
-        dir.Normalize();
-        velocity = dir * finalSpeed;
+    Debug.Log("IS PLAYER SIDE: " + isPlayerSide);
+    Debug.Log("DIR: " + dir);
+    Debug.Log("FINAL SPEED: " + finalSpeed);
 
-        Debug.Log("EXTRA POWER: " + extraPower);
-        Debug.Log("EXTRA PADDLE VELOCITY MAGNITUDE: " + paddleVelocity.magnitude);
-        Debug.Log("FINAL SPEED: " + finalSpeed);
-        Debug.Log("VELOCITY FINAL: " + velocity);
-        StartCoroutine(ResetHit());
-    }
+    StartCoroutine(ResetHit());
+}
     
     private IEnumerator ResetHit()
     {
-        yield return new WaitForSeconds(1f);
+        yield return new WaitForSeconds(.08f);
         canHit = true;
     }
 

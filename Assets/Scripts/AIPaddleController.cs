@@ -2,8 +2,9 @@ using UnityEngine;
 
 public class AIPaddleController : MonoBehaviour
 {
-    [Header("References")] [SerializeField]
-    private BallController ballController;
+    [Header("References")] 
+    [SerializeField] private MatchController _matchController;
+    [SerializeField] private BallController ballController;
 
     [SerializeField] private BoxCollider movementArea;
     [SerializeField] private BoxCollider paddleCollider;
@@ -11,14 +12,10 @@ public class AIPaddleController : MonoBehaviour
     [Header("Movement")] [SerializeField] private float moveSpeed = 8f;
     [SerializeField] private float yFollowSpeed = 6f;
 
-    [Header("AI")] [SerializeField] private float accuracy = 0.15f;
-    [SerializeField] private float reactionDistance = 4f;
-
     [Header("Hit")] [SerializeField] private float hitDistance = 0.35f;
     [SerializeField] private float hitCooldown = 0.15f;
 
     private Vector3 lastPos;
-
     public Vector3 PaddleVelocity { get; private set; }
 
     private bool canHitBall = true;
@@ -50,6 +47,10 @@ public class AIPaddleController : MonoBehaviour
         Vector3 targetPos =
             transform.position;
 
+        // =========================
+        // DISTANCIA
+        // =========================
+
         float distanceToBall =
             Mathf.Abs(
                 transform.position.x -
@@ -57,47 +58,37 @@ public class AIPaddleController : MonoBehaviour
             );
 
         bool shouldAttack =
-            distanceToBall <
-            reactionDistance;
+            distanceToBall < 0.7f;
 
         // =========================
         // X
         // =========================
 
-        if (shouldAttack)
-        {
-            // acercarse para pegar
-            targetPos.x =
-                Mathf.Clamp(
-                    ballPos.x + 0.35f,
-                    bounds.min.x,
-                    bounds.max.x
-                );
-        }
-        else
-        {
-            // quedarse atras
-            targetPos.x =
-                Mathf.Lerp(
-                    transform.position.x,
-                    bounds.max.x - 0.8f,
-                    Time.deltaTime * moveSpeed
-                );
-        }
+        float idleX =
+            bounds.max.x - 0.8f;
+
+        float attackX =
+            ballPos.x + 0.25f;
+
+        targetPos.x =
+            shouldAttack
+                ? attackX
+                : idleX;
+
+        targetPos.x =
+            Mathf.Clamp(
+                targetPos.x,
+                bounds.min.x,
+                bounds.max.x
+            );
 
         // =========================
         // Z
         // =========================
 
-        float randomOffset =
-            Random.Range(
-                -accuracy,
-                accuracy
-            );
-
         targetPos.z =
             Mathf.Clamp(
-                ballPos.z + randomOffset,
+                ballPos.z,
                 bounds.min.z,
                 bounds.max.z
             );

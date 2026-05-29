@@ -3,8 +3,12 @@ using UnityEngine;
 public class PaddleController : MonoBehaviour
 {
     [Header("References")]
+    [SerializeField] private MatchController _matchController;
     [SerializeField] private Camera cam;
     [SerializeField] private BallController ballController;
+    
+    
+    [SerializeField] private MatchController.Side _side;
 
     [Header("Movement Areas")]
     [SerializeField] private BoxCollider playerArea;
@@ -37,6 +41,7 @@ public class PaddleController : MonoBehaviour
     private void Start()
     {
         playerServe = true;
+        _side = MatchController.Side.Player;
     }
 
     private void Update()
@@ -62,7 +67,7 @@ public class PaddleController : MonoBehaviour
 
     void CheckBallHit()
     {
-        if (!canHitBall)
+        if (!_matchController.CanHit(_side))
             return;
 
         if (ballController == null)
@@ -83,13 +88,6 @@ public class PaddleController : MonoBehaviour
         {
             return;
         }   
-        Debug.Log("DISTANCE " + distance);
-        Debug.Log("HIT DISTANCE " + hitDistance);
-        // verificar que la pelota venga hacia nosotros
-        // if (ballController.Velocity.x > 0f)
-        //     return;
-
-        canHitBall = false;
 
         ballController.Hit(
             transform,
@@ -98,17 +96,15 @@ public class PaddleController : MonoBehaviour
 
         Debug.Log("BALL HIT");
 
-        Invoke(nameof(ResetHit), 0.15f);
+        Invoke(nameof(ResetHit), 0.05f);
     }
 
     public BoxCollider paddleCollider;
 
     private void ResetHit()
     {
-        canHitBall = true;
+        _matchController.RegisterHit(_side);
     }
-
-    public bool canHitBall = true;
 
     
     void SetupMovementArea()
@@ -164,7 +160,6 @@ public class PaddleController : MonoBehaviour
 
         point.y = GetTargetY();
 
-        //transform.position = point;
         transform.position =
             Vector3.Lerp(
                 transform.position,
