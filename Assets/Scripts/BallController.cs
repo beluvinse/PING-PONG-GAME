@@ -10,26 +10,25 @@ public class BallController : MonoBehaviour
     [SerializeField] private BoxCollider tableCollider;
 
     [Header("Movement")]
-    [SerializeField] private float speed;
-    [SerializeField] private float gravity = 7f;
-    [SerializeField] private float maxSpeed = 7f;
-
-    [Header("Bounce")]
+    [SerializeField] private float gravity = 3.2f;
+    [SerializeField] private float maxSpeed = 3f;
     [SerializeField] private float bounceForce = 0.85f;
+    [SerializeField] private float maxZ = .6f;
+    [SerializeField] private float ballServePos;
+    [SerializeField] private float paddlePower;
 
-
-    public float ballServePos;
+    
     private Vector3 velocity;
-    public Vector3 Velocity => velocity;
-
     private bool waitingServe = true;
     private bool canHit = true;
+    
 
-    void Update()
+    private void Update()
     {
         if (Input.GetMouseButtonDown(1))
         {
             ResetBall();
+            _matchController.StartRally(MatchController.Side.Player);
         }
 
         if (waitingServe)
@@ -73,6 +72,13 @@ public class BallController : MonoBehaviour
         transform.position += velocity * Time.deltaTime;
     }
 
+    public MatchController.Side CheckCurrentSide()
+    {
+        var isPlayerSide = transform.position.x > tableCollider.bounds.center.x;
+        
+        return isPlayerSide? MatchController.Side.Player : MatchController.Side.AI;
+    }
+    
     private void CheckTableBounce()
     {
         if (!IsAboveTable())
@@ -91,12 +97,7 @@ public class BallController : MonoBehaviour
         _matchController.RegisterBounce(CheckCurrentSide());
     }
 
-    private MatchController.Side CheckCurrentSide()
-    {
-        var isPlayerSide = transform.position.x > tableCollider.bounds.center.x;
-        
-        return isPlayerSide? MatchController.Side.Player : MatchController.Side.AI;
-    }
+   
 
     bool IsAboveTable()
     {
@@ -112,7 +113,7 @@ public class BallController : MonoBehaviour
     }
     
 
-    [SerializeField] private float paddlePower;
+
     
     void Serve()
     {
@@ -129,7 +130,7 @@ public class BallController : MonoBehaviour
     public float _serveSpeed = 2f;
     
     
-    public float maxZ = 1;
+    
 
     public void Hit(Transform paddleTransform, Vector3 paddleVelocity)
 {
@@ -154,44 +155,26 @@ public class BallController : MonoBehaviour
         transform.position.z
     );
 
-    // =========================
-    // DIRECCION BASE
-    // =========================
-
     Vector3 dir;
 
     if (isPlayerSide)
     {
-        Debug.Log("PLAYER PEGA");
-        // player golpea hacia derecha
         dir = Vector3.left;
     }
     else
     {
-        Debug.Log("IA PEGA");
-        // IA golpea hacia izquierda
         dir = Vector3.right;
     }
 
-    // =========================
-    // POWER
-    // =========================
 
-    float normalized =
-        paddleVelocity.magnitude / maxSpeed;
+    float normalized = paddleVelocity.magnitude / maxSpeed;
 
-    normalized =
-        Mathf.Clamp01(normalized);
+    normalized = Mathf.Clamp01(normalized);
 
     normalized =
         Mathf.Sqrt(normalized);
 
-    float extraPower =
-        Mathf.Lerp(
-            0.05f,
-            0.5f,
-            normalized
-        );
+    float extraPower = Mathf.Lerp(0.05f, 0.6f, normalized);
 
     // =========================
     // DISTANCIA AL NET
@@ -204,17 +187,9 @@ public class BallController : MonoBehaviour
         (tableCollider.bounds.max.x -
          tableCollider.bounds.min.x) * 0.5f;
 
-    float distanceToNet =
-        Mathf.Abs(
-            paddleTransform.position.x -
-            boundsCenter.x
-        );
+    float distanceToNet = Mathf.Abs(paddleTransform.position.x - boundsCenter.x);
 
-    float t =
-        1f -
-        Mathf.Clamp01(
-            distanceToNet / halfWidth
-        );
+    float t = 1f - Mathf.Clamp01(distanceToNet / halfWidth);
 
     float dynamicMaxZ =
         Mathf.Lerp(
@@ -223,28 +198,108 @@ public class BallController : MonoBehaviour
             t
         );
 
-    float side =
-        Mathf.Clamp(
-            paddleVelocity.z,
-            -dynamicMaxZ,
-            dynamicMaxZ
+    float side;
+    
+    float power01 =
+        Mathf.InverseLerp(
+            0.05f,
+            0.5f,
+            extraPower
         );
+    
+    
+    if (isPlayerSide)
+    {
+        float playerSide =
+            Mathf.Clamp(
+                paddleVelocity.z,
+                -dynamicMaxZ,
+                dynamicMaxZ
+            );
 
+        float centerZ =
+            tableCollider.bounds.center.z;
+
+        float distanceFromCenter =
+            transform.position.z -
+            centerZ;
+
+        float correction =
+            -distanceFromCenter;
+
+        correction =
+            Mathf.Clamp(
+                correction,
+                -dynamicMaxZ,
+                dynamicMaxZ
+            );
+
+        float assistAmount =
+            Mathf.Pow(
+                1f - power01,
+                2f
+            );
+
+        side =
+            Mathf.Lerp(
+                playerSide,
+                correction,
+                assistAmount * 0.7f
+            );
+    }
+    else
+    {
+        Bounds bounds =
+            tableCollider.bounds;
+
+        float margin = 0.4f;
+
+        float targetZ =
+            Random.Range(
+                bounds.min.z + margin,
+                bounds.max.z - margin
+            );
+
+        float aim =
+            targetZ -
+            transform.position.z;
+
+        side =
+            Mathf.Clamp(
+                aim * 1.5f,
+                -dynamicMaxZ,
+                dynamicMaxZ
+            );
+    }
+    
     dir.z = side;
 
-    dir.y = Mathf.Lerp(.4f, .6f, t);
-    
-    var baseSpeed = Mathf.Lerp(.5f, 2.4f, 1f - t);
+//si le pego fuerte, el arco es menor, si le pego mas despacio el arco es mayor
+    float arc =
+        Mathf.Lerp(
+            1f,
+            0.3f,
+            power01
+        );
 
-    var finalSpeed = baseSpeed + extraPower;
+    dir.y = arc;
     
+
+    float finalSpeed =
+        Mathf.Lerp(
+            .8f, 2f,
+            power01
+        );
+
+// bonus por pegar lejos de la red
+    finalSpeed +=
+        Mathf.Lerp(0f, .8f, 1f - t);
+
     dir.Normalize();
 
-    velocity = dir * finalSpeed;
 
-    Debug.Log("IS PLAYER SIDE: " + isPlayerSide);
-    Debug.Log("DIR: " + dir);
-    Debug.Log("FINAL SPEED: " + finalSpeed);
+    velocity = dir * finalSpeed;
+    
 
     StartCoroutine(ResetHit());
 }

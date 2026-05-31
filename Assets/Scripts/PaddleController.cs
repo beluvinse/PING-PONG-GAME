@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 
 public class PaddleController : MonoBehaviour
@@ -7,20 +8,17 @@ public class PaddleController : MonoBehaviour
     [SerializeField] private Camera cam;
     [SerializeField] private BallController ballController;
     
-    
     [SerializeField] private MatchController.Side _side;
 
     [Header("Movement Areas")]
     [SerializeField] private BoxCollider playerArea;
     [SerializeField] private BoxCollider playerServeArea;
-
-    [Header("Serve")]
-    [SerializeField] private bool playerServe = true;
+    
 
     [Header("Y Follow")]
-    [SerializeField] private float yFollowSpeed = 6f;
+    [SerializeField] private float yFollowSpeed = 10f;
 
-    [SerializeField] private float yInfluence = 0.35f;
+    [SerializeField] private float yInfluence = 0.2f;
 
     [Header("Rotation")]
     [SerializeField] private Transform paddleVisual;
@@ -28,7 +26,7 @@ public class PaddleController : MonoBehaviour
     [SerializeField] private float centerX = 90f;
 
     [SerializeField] private float maxTilt = 50f;
-    [SerializeField] private float hitDistance = 0.35f;
+    [SerializeField] private float hitDistance = 0.05f;
     
     private Bounds bounds;
 
@@ -36,17 +34,28 @@ public class PaddleController : MonoBehaviour
 
     private Vector3 lastPos;
 
+    [SerializeField] private float _paddleMovement;
+
     public Vector3 PaddleVelocity { get; private set; }
+
+    private void Awake()
+    {
+        _matchController.OnBallServed += OnBallServed;
+    }
+
+    private void OnBallServed(bool ballServed)
+    {
+        SetupMovementArea(ballServed);
+    }
 
     private void Start()
     {
-        playerServe = true;
         _side = MatchController.Side.Player;
+        SetupMovementArea(false);
     }
 
     private void Update()
     {
-        SetupMovementArea();
         MovePaddle();
         CheckBallHit();
         
@@ -56,12 +65,12 @@ public class PaddleController : MonoBehaviour
         
         if (Input.GetMouseButtonDown(1))
         {
-            playerServe = true;
+            _matchController.StartRally(_side);
         }
         
         if (Input.GetKeyDown(KeyCode.Space))
         {
-            playerServe = false;
+            _matchController.StartRally(MatchController.Side.AI);
         }
     }
 
@@ -96,7 +105,8 @@ public class PaddleController : MonoBehaviour
 
         Debug.Log("BALL HIT");
 
-        Invoke(nameof(ResetHit), 0.05f);
+        // Invoke(nameof(ResetHit), 0.01f);
+        ResetHit();
     }
 
     public BoxCollider paddleCollider;
@@ -107,19 +117,9 @@ public class PaddleController : MonoBehaviour
     }
 
     
-    void SetupMovementArea()
-    {
-        if (!playerServe)
-        {
-            bounds = playerArea.bounds;
-
-            movePlane =
-                new Plane(
-                    Vector3.up,
-                    playerArea.bounds.center
-                );
-        }
-        else
+    void SetupMovementArea(bool ballServed)
+    { 
+        if (_matchController.IsServer(_side) && !ballServed)
         {
             bounds = playerServeArea.bounds;
 
@@ -127,6 +127,16 @@ public class PaddleController : MonoBehaviour
                 new Plane(
                     Vector3.up,
                     playerServeArea.bounds.center
+                );
+        }
+        else if(ballServed)
+        {
+            bounds = playerArea.bounds;
+
+            movePlane =
+                new Plane(
+                    Vector3.up,
+                    playerArea.bounds.center
                 );
         }
     }
@@ -138,7 +148,7 @@ public class PaddleController : MonoBehaviour
                 Input.mousePosition
             );
 
-        if (!movePlane.Raycast(ray, out float enter))
+        if (!movePlane.Raycast(ray, out var enter))
             return;
 
         Vector3 point =
@@ -170,14 +180,11 @@ public class PaddleController : MonoBehaviour
         RotatePaddle();
     }
 
-    [SerializeField] private float _paddleMovement;
 
     float GetTargetY()
     {
-        float ballY = ballController.transform.position.y;
-
-        // si la pelota se fue del rango vertical permitido
-        // volver suavemente al centro
+        var ballY = ballController.transform.position.y;
+        
         if (ballY < bounds.min.y || ballY > bounds.max.y)
         {
             return Mathf.Lerp(
@@ -226,5 +233,10 @@ public class PaddleController : MonoBehaviour
                 180f + yRot,
                 90f
             );
+    }
+
+    private void OnDestroy()
+    {
+        _matchController.OnBallServed -= OnBallServed;
     }
 }
