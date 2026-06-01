@@ -171,7 +171,6 @@ public class AIPaddleController : MonoBehaviour
         if (_serveRoutine != null)
             StopCoroutine(_serveRoutine);
 
-        Debug.Log($"ON BALL SERVED | SIDE: {_side} | IS SERVER: {_matchController.IsServer(_side)} | BALL SERVED: {ballServed}");
         if (_matchController.IsServer(_side) && !ballServed)
         {
             var pos = transform.position;

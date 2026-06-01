@@ -1,13 +1,10 @@
 using System;
+using System.Collections;
 using UnityEngine;
 
 public class MatchController : MonoBehaviour
 {
-    public enum Side
-    {
-        Player,
-        AI
-    }
+    public enum Side { Player, AI }
 
     [Header("Score")]
     public int playerScore;
@@ -20,48 +17,41 @@ public class MatchController : MonoBehaviour
 
     public bool ballBounced;
     public bool ballServed;
-    public bool waitingServeBounce;
-
     public int bounceCount;
-
     public Side lastBounceSide;
+    public int servesDone;
 
+    public Action<Side> OnPointWon;
+    public Action<Side> OnServerAnnounced;
     public Action<bool> OnBallServed;
+    public Action OnRallyStarted;
 
-    public int servesDone { get; set; }
-
-
-    private void Awake()
-    {
-        Cursor.visible = false;
-    }
-
+    private BaseMatchState _currentState;
+    
     private void Start()
     {
-        StartRally(Side.Player);
+        RestartGame();
     }
 
-    public void StartRally(Side newServer)
+    public void RestartGame()
     {
-        server = newServer;
-
-        lastHitter = newServer;
-
-        currentTurn = newServer == Side.Player ? Side.AI : Side.Player;
-
-        ballBounced = false;
-        ballServed = false;
-        waitingServeBounce = true;
-
-        bounceCount = 0;
-        
-        OnBallServed?.Invoke(false);
+        server = Side.Player;
+        playerScore = 0;
+        aiScore = 0;
+        servesDone = 0;
+        OnServerAnnounced?.Invoke(server);
+        TransitionTo(new ServingState(this));
     }
+    
 
-    public bool IsServer(Side side)
+    public void TransitionTo(BaseMatchState newState)
     {
-        return side == server;
+        _currentState?.Exit();
+        _currentState = newState;
+        _currentState.Enter();
     }
+
+    public bool IsServer(Side side) => side == server;
 
     public void SetBallServed()
     {
@@ -69,158 +59,50 @@ public class MatchController : MonoBehaviour
         OnBallServed?.Invoke(true);
     }
 
-    public void RegisterBounce(Side side)
-    {
-        bounceCount++;
-
-        ballBounced = true;
-        lastBounceSide = side;
-        
-        if (waitingServeBounce)
-        {
-            if (side != server)
-            {
-                Side winner =
-                    side == Side.Player
-                        ? Side.AI
-                        : Side.Player;
-
-                AwardPoint(winner);
-                return;
-            }
-
-            Debug.Log("VALID SERVE BOUNCE");
-
-            waitingServeBounce = false;
-
-            ballBounced = false;
-            bounceCount = 0;
-
-            return;
-        }
-
-        if (bounceCount >= 2)
-        {
-            Side winner =
-                side == Side.Player
-                    ? Side.AI
-                    : Side.Player;
-
-            AwardPoint(winner);
-            return;
-        }
-
-        if (side != currentTurn)
-        {
-            Side winner =
-                side == Side.Player
-                    ? Side.AI
-                    : Side.Player;
-
-            AwardPoint(winner);
-        }
-    }
-
     public bool CanHit(Side side)
     {
-        Debug.Log(
-            $"CanHit {side} | " +
-            $"ballServed:{ballServed} | " +
-            $"lastHitter:{lastHitter} | " +
-            $"currentTurn:{currentTurn} | " +
-            $"ballBounced:{ballBounced} | " +
-            $"lastBounceSide:{lastBounceSide}"
-        );
-        
-        
-        // saque
-        if (!ballServed)
-            return true;
-
-        // no puede pegar dos veces seguidas
-        if (side == lastHitter)
-            return false;
-
-        // tiene que haber picado
-        if (!ballBounced)
-            return false;
-
-        // tiene que haber picado en SU lado
-        if (lastBounceSide != side)
-            return false;
-
-        // tiene que ser su turno
-        if (currentTurn != side)
-            return false;
-
+        if (!ballServed && !isServeReady) return false;
+        if (!ballServed) return true;
+        if (side == lastHitter) return false;
+        if (!ballBounced) return false;
+        if (lastBounceSide != side) return false;
+        if (currentTurn != side) return false;
         return true;
     }
 
-    public void RegisterHit(Side side)
+    public void RegisterBounce(Side side) => _currentState?.OnBounce(side);
+    public void RegisterHit(Side side) => _currentState?.OnHit(side);
+    public void RegisterBallOut() => _currentState?.OnBallOut();
+
+    public bool isServeReady { get; private set; }
+
+    public void StartServeDelay(float delay, Action onReady)
     {
-        // =========================
-        // GOLPE ANTES DEL PIQUE
-        // =========================
-
-        if (!waitingServeBounce && !ballBounced)
-        {
-            Debug.Log(
-                side + " HIT BEFORE BOUNCE"
-            );
-
-            Side winner =
-                side == Side.Player
-                    ? Side.AI
-                    : Side.Player;
-
-            AwardPoint(winner);
-
-            return;
-        }
-
-        lastHitter = side;
-
-        currentTurn =
-            side == Side.Player
-                ? Side.AI
-                : Side.Player;
-
-        ballBounced = false;
-        bounceCount = 0;
-
-        Debug.Log(side + " HIT BALL");
+        isServeReady = false;
+        StartCoroutine(ServeDelayRoutine(delay, onReady));
     }
-
-    void AwardPoint(Side winner)
+    private IEnumerator ServeDelayRoutine(float delay, Action onReady)
     {
-        if (winner == Side.Player)
-            playerScore++;
-        else
-            aiScore++;
-
-        Debug.Log("POINT FOR: " + winner);
-
-        Debug.Log(
-            $"PLAYER: {playerScore} | AI: {aiScore}"
-        );
-
-        servesDone++;
-        
-        if (servesDone >= 2)
-        {
-            servesDone = 0;
-
-            server = server == Side.Player
-                    ? Side.AI
-                    : Side.Player;
-        }
-
-        StartRally(server);
+        yield return new WaitForSeconds(delay);
+        isServeReady = true;
+        onReady?.Invoke();
     }
+    
+    public Action<Side> OnMatchOver;
 
-    public void RegisterBallOut(Side checkCurrentSide)
+    public bool IsMatchOver()
     {
-        Side winner = checkCurrentSide == Side.Player ? Side.AI : Side.Player;
+        const int pointsToWin = 5;
 
-        AwardPoint(winner);    }
+        bool playerReached =
+            playerScore >= pointsToWin;
+
+        bool aiReached =
+            aiScore >= pointsToWin;
+
+        if (!playerReached && !aiReached)
+            return false;
+
+        return playerScore - aiScore >= 2;
+    }
 }
