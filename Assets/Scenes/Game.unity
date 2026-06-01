@@ -345,19 +345,19 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   _matchController: {fileID: 1625228612}
-  cam: {fileID: 963194227}
-  ballController: {fileID: 137000248}
-  _side: 0
-  playerArea: {fileID: 471589871}
-  playerServeArea: {fileID: 697497827}
-  yFollowSpeed: 10
-  yInfluence: 0.19
-  paddleVisual: {fileID: 9143211934247762973}
-  centerX: 90
-  maxTilt: 50
-  hitDistance: 0.05
-  _paddleMovement: 20
-  paddleCollider: {fileID: 95136187}
+  _cam: {fileID: 963194227}
+  _ballController: {fileID: 137000248}
+  _paddleVisual: {fileID: 9143211934247762973}
+  _paddleCollider: {fileID: 95136187}
+  _playerArea: {fileID: 471589871}
+  _playerServeArea: {fileID: 697497827}
+  _yFollowSpeed: 12
+  _yInfluence: 0.3
+  _maxTilt: 50
+  _hitDistance: 0.02
+  _paddleSpeed: 20
+  _closeDistanceThreshold: 0.4
+  _closeFollowSpeed: 15
 --- !u!65 &95136187
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -545,15 +545,15 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 602772714540372464, guid: b2b5ada8e9c44764b8a4f75580365e16, type: 3}
       propertyPath: m_LocalPosition.x
-      value: 0.92200005
+      value: 0.472
       objectReference: {fileID: 0}
     - target: {fileID: 602772714540372464, guid: b2b5ada8e9c44764b8a4f75580365e16, type: 3}
       propertyPath: m_LocalPosition.y
-      value: 0.264
+      value: 0.0804
       objectReference: {fileID: 0}
     - target: {fileID: 602772714540372464, guid: b2b5ada8e9c44764b8a4f75580365e16, type: 3}
       propertyPath: m_LocalPosition.z
-      value: -0.07199997
+      value: 0.566
       objectReference: {fileID: 0}
     - target: {fileID: 602772714540372464, guid: b2b5ada8e9c44764b8a4f75580365e16, type: 3}
       propertyPath: m_LocalRotation.w
@@ -1246,7 +1246,7 @@ GameObject:
   - component: {fileID: 912672238}
   m_Layer: 0
   m_Name: Floor
-  m_TagString: Untagged
+  m_TagString: Floor
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -1266,11 +1266,11 @@ MeshCollider:
     serializedVersion: 2
     m_Bits: 0
   m_LayerOverridePriority: 0
-  m_IsTrigger: 0
+  m_IsTrigger: 1
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 5
-  m_Convex: 0
+  m_Convex: 1
   m_CookingOptions: 30
   m_Mesh: {fileID: 10209, guid: 0000000000000000e000000000000000, type: 0}
 --- !u!23 &912672239
@@ -1712,7 +1712,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!114 &1087077664
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -3448,21 +3448,24 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d61c4e3f61eb68548bf2cb76f2e609f6, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  _matchController: {fileID: 1625228612}
-  ballController: {fileID: 137000248}
-  movementArea: {fileID: 1377060322}
-  paddleCollider: {fileID: 7932623710231041569}
-  yFollowSpeed: 8.5
-  hitDistance: 0.05
   _side: 1
-  paddleVisual: {fileID: 1241783912}
-  centerX: 90
-  maxTilt: 50
-  xMoveSpeed: 8
-  zMoveSpeed: 5.5
-  yMoveSpeed: 10
-  minAttackSpeed: 0.2
-  maxAttackSpeed: 1
+  _matchController: {fileID: 1625228612}
+  _ballController: {fileID: 137000248}
+  _paddleVisual: {fileID: 1241783912}
+  _movementArea: {fileID: 1377060322}
+  _paddleCollider: {fileID: 7932623710231041569}
+  _hitDistance: 0.05
+  _maxTilt: 50
+  _xMoveSpeed: 8
+  _zMoveSpeed: 5
+  _yMoveSpeed: 10
+  _minAttackSpeed: 0.2
+  _maxAttackSpeed: 1
+  _retreatOffset: 2
+  _attackOffset: 0.2
+  _prepareOffset: 0.8
+  _attackThreshold: 0.2
+  _yTrackingBias: 0.35
 --- !u!65 &7932623710231041569
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -3482,8 +3485,8 @@ BoxCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
-  m_Size: {x: 0.04355681, y: 0.24955256, z: 0.19615299}
-  m_Center: {x: 0.007810354, y: -0.029504336, z: 0.0019596517}
+  m_Size: {x: 0.04355681, y: 0.24955256, z: 0.15941012}
+  m_Center: {x: 0.007810354, y: -0.029504336, z: 0}
 --- !u!1 &8821522053698603532
 GameObject:
   m_ObjectHideFlags: 0

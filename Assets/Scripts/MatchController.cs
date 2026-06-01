@@ -28,6 +28,14 @@ public class MatchController : MonoBehaviour
 
     public Action<bool> OnBallServed;
 
+    public int servesDone { get; set; }
+
+
+    private void Awake()
+    {
+        Cursor.visible = false;
+    }
+
     private void Start()
     {
         StartRally(Side.Player);
@@ -58,7 +66,6 @@ public class MatchController : MonoBehaviour
     public void SetBallServed()
     {
         ballServed = true;
-        Debug.Log("aaaaaaaaaaaaaaaaa BALL SERVED BY: " + server);
         OnBallServed?.Invoke(true);
     }
 
@@ -68,15 +75,7 @@ public class MatchController : MonoBehaviour
 
         ballBounced = true;
         lastBounceSide = side;
-
-        Debug.Log(
-            $"BOUNCE ON {side} | COUNT {bounceCount}"
-        );
-
-        // =========================
-        // PRIMER PIQUE DEL SAQUE
-        // =========================
-
+        
         if (waitingServeBounce)
         {
             if (side != server)
@@ -100,10 +99,6 @@ public class MatchController : MonoBehaviour
             return;
         }
 
-        // =========================
-        // DOBLE PIQUE
-        // =========================
-
         if (bounceCount >= 2)
         {
             Side winner =
@@ -114,10 +109,6 @@ public class MatchController : MonoBehaviour
             AwardPoint(winner);
             return;
         }
-
-        // =========================
-        // PIQUE EN LADO INCORRECTO
-        // =========================
 
         if (side != currentTurn)
         {
@@ -132,6 +123,16 @@ public class MatchController : MonoBehaviour
 
     public bool CanHit(Side side)
     {
+        Debug.Log(
+            $"CanHit {side} | " +
+            $"ballServed:{ballServed} | " +
+            $"lastHitter:{lastHitter} | " +
+            $"currentTurn:{currentTurn} | " +
+            $"ballBounced:{ballBounced} | " +
+            $"lastBounceSide:{lastBounceSide}"
+        );
+        
+        
         // saque
         if (!ballServed)
             return true;
@@ -203,11 +204,23 @@ public class MatchController : MonoBehaviour
             $"PLAYER: {playerScore} | AI: {aiScore}"
         );
 
-        ResetRally(winner);
+        servesDone++;
+        
+        if (servesDone >= 2)
+        {
+            servesDone = 0;
+
+            server = server == Side.Player
+                    ? Side.AI
+                    : Side.Player;
+        }
+
+        StartRally(server);
     }
 
-    void ResetRally(Side newServer)
+    public void RegisterBallOut(Side checkCurrentSide)
     {
-        StartRally(newServer);
-    }
+        Side winner = checkCurrentSide == Side.Player ? Side.AI : Side.Player;
+
+        AwardPoint(winner);    }
 }

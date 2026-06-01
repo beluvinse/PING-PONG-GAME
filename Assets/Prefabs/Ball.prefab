@@ -102,15 +102,15 @@ MonoBehaviour:
   playerPaddle: {fileID: 0}
   opponentPaddle: {fileID: 0}
   tableCollider: {fileID: 0}
-  speed: 2
   gravity: 3.2
   maxSpeed: 3
   bounceForce: 0.85
-  ballServePos: 0.922
-  paddlePower: 0.38
-  _serveY: -0.2
-  _serveSpeed: 2
   maxZ: 0.6
+  ballServePosPlayer: 0
+  ballServePosOpponent: 0
+  paddlePower: 0.38
+  _serveY: -0.6
+  _serveSpeed: 2
 --- !u!135 &6902005455477080651
 SphereCollider:
   m_ObjectHideFlags: 0
