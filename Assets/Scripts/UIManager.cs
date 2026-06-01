@@ -31,8 +31,6 @@ public class UIManager : MonoBehaviour
     
     private void Awake()
     {
-        Cursor.visible = false;
-
         _matchController.OnBallServed += OnBallServed;
         _matchController.OnServerAnnounced += OnServerAnnounced;
         _matchController.OnPointWon += OnPointWon;
@@ -67,7 +65,6 @@ public class UIManager : MonoBehaviour
 
     private void OnRematchClicked()
     {
-        Cursor.visible = false;
         _matchController.playerScore = 0;
         _matchController.aiScore = 0;
         UpdateScoreUI();
@@ -78,7 +75,6 @@ public class UIManager : MonoBehaviour
 
     private void OnMatchOver(MatchController.Side winner)
     {
-        Cursor.visible = true;
         _matchOverText.text = winner == MatchController.Side.Player ? "VICTORY" : "DEFEAT";
         _matchEndedPanel.SetActive(true);
     }
@@ -93,20 +89,20 @@ public class UIManager : MonoBehaviour
     {
         var newText = scorerSide.Equals(MatchController.Side.Player) ? PLAYER_SCORED_TEXT : AI_SCORED_TEXT;
         _scorerText.text = newText;
-        _scorerText.gameObject.SetActive(true);
-        StartCoroutine(HideScorerText());
+        StartCoroutine(HideTextAfterXSeconds(_scorerText.gameObject, 1.5f));
         UpdateScoreUI();
     }
-
-    private IEnumerator HideScorerText()
+    private IEnumerator HideTextAfterXSeconds(GameObject text, float seconds)
     {
-        yield return new WaitForSeconds(1.5f);
-        _scorerText.gameObject.SetActive(false);
+        text.SetActive(true);
+        yield return new WaitForSeconds(seconds);
+        text.gameObject.SetActive(false);
     }
 
     private void OnServerAnnounced(MatchController.Side serverSide)
     {
         _serverText.text = serverSide.Equals(MatchController.Side.Player) ? "Your serve" : "Opponent to serve";
+        StartCoroutine(HideTextAfterXSeconds(_serverText.gameObject, 1.5f));
     }
 
     private void OnBallServed(bool ballServed)

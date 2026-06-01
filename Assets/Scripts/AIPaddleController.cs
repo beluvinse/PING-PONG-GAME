@@ -111,9 +111,10 @@ public class AIPaddleController : MonoBehaviour
 
     private float CalculateTargetY(Vector3 ballPos, Bounds bounds, bool isBallOnAISide)
     {
-        return isBallOnAISide
-            ? Mathf.Lerp(bounds.center.y, ballPos.y, _yTrackingBias)
-            : bounds.center.y;
+        if (!_matchController.IsRallyActive)
+            return bounds.center.y;
+        
+        return isBallOnAISide ? Mathf.Lerp(bounds.center.y, ballPos.y, _yTrackingBias) : bounds.center.y;
     }
 
     private void ApplyMovement(Vector3 targetPos)

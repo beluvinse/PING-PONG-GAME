@@ -26,6 +26,8 @@ public class MatchController : MonoBehaviour
     public Action<bool> OnBallServed;
     public Action OnRallyStarted;
 
+    public bool IsRallyActive => _currentState is RallyState;
+    
     private BaseMatchState _currentState;
     
     private void Start()
@@ -39,7 +41,6 @@ public class MatchController : MonoBehaviour
         playerScore = 0;
         aiScore = 0;
         servesDone = 0;
-        OnServerAnnounced?.Invoke(server);
         TransitionTo(new ServingState(this));
     }
     
@@ -74,35 +75,45 @@ public class MatchController : MonoBehaviour
     public void RegisterHit(Side side) => _currentState?.OnHit(side);
     public void RegisterBallOut() => _currentState?.OnBallOut();
 
-    public bool isServeReady { get; private set; }
+    private bool isServeReady;
 
     public void StartServeDelay(float delay, Action onReady)
     {
         isServeReady = false;
         StartCoroutine(ServeDelayRoutine(delay, onReady));
     }
+    
     private IEnumerator ServeDelayRoutine(float delay, Action onReady)
     {
         yield return new WaitForSeconds(delay);
         isServeReady = true;
         onReady?.Invoke();
     }
-    
+
+    public void StartDelayMatchOver(float delay, Action onReady)
+    {
+        StartCoroutine(MatchOverRoutine(delay, onReady));
+    }
+
+    private IEnumerator MatchOverRoutine(float delay, Action onReady)
+    {
+        yield return new WaitForSeconds(delay);
+        onReady?.Invoke();
+    }
+
     public Action<Side> OnMatchOver;
 
     public bool IsMatchOver()
     {
         const int pointsToWin = 5;
 
-        bool playerReached =
-            playerScore >= pointsToWin;
+        var playerReached = playerScore >= pointsToWin;
 
-        bool aiReached =
-            aiScore >= pointsToWin;
+        var aiReached = aiScore >= pointsToWin;
 
         if (!playerReached && !aiReached)
             return false;
 
-        return playerScore - aiScore >= 2;
+        return Mathf.Abs(playerScore - aiScore) >= 2;
     }
 }

@@ -26,20 +26,59 @@ public class PaddleController : MonoBehaviour
     private Vector3 _lastPos;
     private Vector3 _paddleVelocity;
     
+    [SerializeField] private Renderer _paddleRenderer;
+
+    [SerializeField] private float _inactiveAlpha = 0.4f;
+
+    private bool _isDragging;
+    
     private void Awake()
     {
         _matchController.OnBallServed += OnBallServed;
         _side = MatchController.Side.Player;
         SetupMovementArea(false);
+        _isDragging = false;
+
+        SetAlpha(_inactiveAlpha);
     }
 
     private void Update()
     {
-        MovePaddle();
+        HandleInput();
+        
         CheckBallHit();
         
         _paddleVelocity = (transform.position - _lastPos) / Time.deltaTime;
         _lastPos = transform.position;
+    }
+    
+    private void HandleInput()
+    {
+        if (Input.GetMouseButtonDown(0))
+        {
+            _isDragging = true;
+            SetAlpha(1f);
+        }
+
+        if (Input.GetMouseButtonUp(0))
+        {
+            _isDragging = false;
+            SetAlpha(_inactiveAlpha);
+        }
+
+        if (_isDragging)
+            MovePaddle();
+    }
+    
+    private void SetAlpha(float alpha)
+    {
+        var color =
+            _paddleRenderer.material.color;
+
+        color.a = alpha;
+
+        _paddleRenderer.material.color =
+            color;
     }
     
     private void CheckBallHit()
@@ -88,6 +127,9 @@ public class PaddleController : MonoBehaviour
     
     private float CalculateTargetY()
     {
+        if (!_matchController.ballServed)
+            return _bounds.center.y;
+        
         var ballY = _ballController.transform.position.y;
         var currentSide = _ballController.CheckCurrentSide();
         var isBallOnPlayerSide = currentSide == MatchController.Side.Player;
@@ -99,10 +141,7 @@ public class PaddleController : MonoBehaviour
         if (distanceToBall < _closeDistanceThreshold)
             return ballY;
 
-        return Mathf.Clamp(
-            Mathf.Lerp(_bounds.center.y, ballY, _yInfluence),
-            _bounds.min.y,
-            _bounds.max.y
+        return Mathf.Clamp(Mathf.Lerp(_bounds.center.y, ballY, _yInfluence), _bounds.min.y, _bounds.max.y
         );
     }
     
@@ -121,6 +160,9 @@ public class PaddleController : MonoBehaviour
     private void OnBallServed(bool ballServed)
     {
         SetupMovementArea(ballServed);
+        
+        if(!ballServed && _matchController.IsServer(_side))
+            transform.position = new Vector3(_bounds.max.x, transform.position.y, _bounds.center.z);
     }
     
     private void OnDestroy()

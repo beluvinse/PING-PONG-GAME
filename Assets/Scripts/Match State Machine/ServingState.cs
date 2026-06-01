@@ -6,6 +6,7 @@ public class ServingState : BaseMatchState
 
     public override void Enter()
     {
+        Match.OnServerAnnounced?.Invoke(Match.server);
         Match.OnRallyStarted?.Invoke();
         Match.lastHitter = Match.server;
         Match.currentTurn = GetOpponent(Match.server);
@@ -27,7 +28,6 @@ public class ServingState : BaseMatchState
         Match.bounceCount = 0;
         Match.TransitionTo(new RallyState(Match));
     }
-    
     
     public override void OnBallOut()
     {
