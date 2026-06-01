@@ -13,6 +13,7 @@ public class UIManager : MonoBehaviour
     [SerializeField] private GameObject _scoresSidePanel;
     [SerializeField] private GameObject _matchEndedPanel;
     [SerializeField] private GameObject _pausePanel;
+    [SerializeField] private Image _scorerPanel;
     
     [Header("Score UI")]
     [SerializeField] private TextMeshProUGUI[] playerScoreText;
@@ -28,6 +29,9 @@ public class UIManager : MonoBehaviour
     
     private const string PLAYER_SCORED_TEXT = "You scored!";
     private const string AI_SCORED_TEXT = "Opponent scored!";
+    
+    [SerializeField] private Color _redColor;
+    [SerializeField] private Color _blueColor;
     
     private void Awake()
     {
@@ -89,10 +93,10 @@ public class UIManager : MonoBehaviour
     {
         var newText = scorerSide.Equals(MatchController.Side.Player) ? PLAYER_SCORED_TEXT : AI_SCORED_TEXT;
         _scorerText.text = newText;
-        StartCoroutine(HideTextAfterXSeconds(_scorerText.gameObject, 1.5f));
+        StartCoroutine(HideGOAfterXSeconds(_scorerText.gameObject, 1.5f));
         UpdateScoreUI();
     }
-    private IEnumerator HideTextAfterXSeconds(GameObject text, float seconds)
+    private IEnumerator HideGOAfterXSeconds(GameObject text, float seconds)
     {
         text.SetActive(true);
         yield return new WaitForSeconds(seconds);
@@ -102,7 +106,8 @@ public class UIManager : MonoBehaviour
     private void OnServerAnnounced(MatchController.Side serverSide)
     {
         _serverText.text = serverSide.Equals(MatchController.Side.Player) ? "Your serve" : "Opponent to serve";
-        StartCoroutine(HideTextAfterXSeconds(_serverText.gameObject, 1.5f));
+        _scorerPanel.color = serverSide.Equals(MatchController.Side.Player) ? _redColor : _blueColor;
+        StartCoroutine(HideGOAfterXSeconds(_scorerPanel.gameObject, 1.5f));
     }
 
     private void OnBallServed(bool ballServed)
