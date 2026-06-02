@@ -9,7 +9,8 @@ public class BallController : MonoBehaviour
     [SerializeField] private Transform playerPaddle;
     [SerializeField] private Transform opponentPaddle;
     [SerializeField] private BoxCollider tableCollider;
-
+    [SerializeField] private TrailRenderer _trail;
+    
     [Header("Movement")]
     [SerializeField] private float gravity = 3.2f;
     [SerializeField] private float maxSpeed = 3f;
@@ -35,10 +36,13 @@ public class BallController : MonoBehaviour
         ballServePosOpponent = bounds.min.x - .1f;
         _matchController.OnBallServed += SetBallForServe;
         _matchController.OnRallyStarted += RallyStarted;
+        _trail.emitting = false;
     }
 
     private void RallyStarted()
     {
+        _trail.emitting = false;
+        _trail.Clear();
         transform.gameObject.SetActive(false);
     }
 
@@ -80,6 +84,7 @@ public class BallController : MonoBehaviour
 
         velocity = dir * _serveSpeed;
         _matchController.SetBallServed();
+        _trail.emitting = true;
     }
     
     private void HandleServe()

@@ -93,7 +93,7 @@ public class UIManager : MonoBehaviour
         _scoresMainPanel.SetActive(true);
         _scoresSidePanel.SetActive(false);
     }
-
+    
     private void OnPointWon(MatchController.Side scorerSide)
     {
         var newText = scorerSide.Equals(MatchController.Side.Player) ? PLAYER_SCORED_TEXT : AI_SCORED_TEXT;

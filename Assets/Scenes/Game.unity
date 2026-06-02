@@ -960,14 +960,6 @@ PrefabInstance:
       value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 1974119335731460411, guid: b2b5ada8e9c44764b8a4f75580365e16, type: 3}
-      propertyPath: maxZ
-      value: 0.8
-      objectReference: {fileID: 0}
-    - target: {fileID: 1974119335731460411, guid: b2b5ada8e9c44764b8a4f75580365e16, type: 3}
-      propertyPath: speed
-      value: 2
-      objectReference: {fileID: 0}
-    - target: {fileID: 1974119335731460411, guid: b2b5ada8e9c44764b8a4f75580365e16, type: 3}
       propertyPath: playerPaddle
       value: 
       objectReference: {fileID: 95136185}
@@ -2338,7 +2330,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &1055045836
 RectTransform:
   m_ObjectHideFlags: 0
@@ -3971,26 +3963,6 @@ PrefabInstance:
     - target: {fileID: 2857904930250504273, guid: 13417cdde8131c84eb01a98021754e84, type: 3}
       propertyPath: m_Name
       value: Table
-      objectReference: {fileID: 0}
-    - target: {fileID: 4819817179351901429, guid: 13417cdde8131c84eb01a98021754e84, type: 3}
-      propertyPath: m_Size.x
-      value: 0.022311928
-      objectReference: {fileID: 0}
-    - target: {fileID: 4819817179351901429, guid: 13417cdde8131c84eb01a98021754e84, type: 3}
-      propertyPath: m_Size.y
-      value: 0.012333703
-      objectReference: {fileID: 0}
-    - target: {fileID: 4819817179351901429, guid: 13417cdde8131c84eb01a98021754e84, type: 3}
-      propertyPath: m_Center.x
-      value: -0.0019597425
-      objectReference: {fileID: 0}
-    - target: {fileID: 4819817179351901429, guid: 13417cdde8131c84eb01a98021754e84, type: 3}
-      propertyPath: m_Center.y
-      value: -0.004502452
-      objectReference: {fileID: 0}
-    - target: {fileID: 4819817179351901429, guid: 13417cdde8131c84eb01a98021754e84, type: 3}
-      propertyPath: m_Center.z
-      value: 0.00025096655
       objectReference: {fileID: 0}
     - target: {fileID: 7003000777691241926, guid: 13417cdde8131c84eb01a98021754e84, type: 3}
       propertyPath: m_LocalPosition.x
