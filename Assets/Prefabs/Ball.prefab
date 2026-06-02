@@ -105,12 +105,15 @@ MonoBehaviour:
   gravity: 3.2
   maxSpeed: 3
   bounceForce: 0.85
-  maxZ: 0.6
-  ballServePosPlayer: 0
-  ballServePosOpponent: 0
-  paddlePower: 0.38
+  maxZ: 0.8
   _serveY: -0.6
   _serveSpeed: 2
+  _hitOffsetX: 0.2
+  _tableMargin: 0.4
+  _aimMultiplier: 1.5
+  _assistBlend: 0.7
+  _minFinalSpeed: 0.8
+  _maxFinalSpeed: 2
 --- !u!135 &6902005455477080651
 SphereCollider:
   m_ObjectHideFlags: 0

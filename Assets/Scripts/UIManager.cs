@@ -8,12 +8,13 @@ public class UIManager : MonoBehaviour
 {
     [Header("References")]
     [SerializeField] private MatchController _matchController;
-
     [SerializeField] private GameObject _scoresMainPanel;
     [SerializeField] private GameObject _scoresSidePanel;
     [SerializeField] private GameObject _matchEndedPanel;
     [SerializeField] private GameObject _pausePanel;
     [SerializeField] private Image _scorerPanel;
+    [SerializeField] private Color _redColor; 
+    [SerializeField] private Color _blueColor;
     
     [Header("Score UI")]
     [SerializeField] private TextMeshProUGUI[] playerScoreText;
@@ -27,11 +28,15 @@ public class UIManager : MonoBehaviour
     [SerializeField] private Button _rematchButton;
     [SerializeField] private Button _quitButton;
     
+    //TEXTS
     private const string PLAYER_SCORED_TEXT = "You scored!";
     private const string AI_SCORED_TEXT = "Opponent scored!";
+    private const string VICTORY_TEXT = "VICTORY";
+    private const string DEFEAT_TEXT = "DEFEAT";
+    private const string PLAYER_SERVES_TEXT = "Your serve";
+    private const string OPPONENT_SERVES_TEXT = "Opponent to serve";
     
-    [SerializeField] private Color _redColor;
-    [SerializeField] private Color _blueColor;
+    
     
     private void Awake()
     {
@@ -79,7 +84,7 @@ public class UIManager : MonoBehaviour
 
     private void OnMatchOver(MatchController.Side winner)
     {
-        _matchOverText.text = winner == MatchController.Side.Player ? "VICTORY" : "DEFEAT";
+        _matchOverText.text = winner == MatchController.Side.Player ? VICTORY_TEXT : DEFEAT_TEXT;
         _matchEndedPanel.SetActive(true);
     }
 
@@ -105,7 +110,7 @@ public class UIManager : MonoBehaviour
 
     private void OnServerAnnounced(MatchController.Side serverSide)
     {
-        _serverText.text = serverSide.Equals(MatchController.Side.Player) ? "Your serve" : "Opponent to serve";
+        _serverText.text = serverSide.Equals(MatchController.Side.Player) ? PLAYER_SERVES_TEXT : OPPONENT_SERVES_TEXT;
         _scorerPanel.color = serverSide.Equals(MatchController.Side.Player) ? _redColor : _blueColor;
         StartCoroutine(HideGOAfterXSeconds(_scorerPanel.gameObject, 1.5f));
     }
@@ -114,7 +119,7 @@ public class UIManager : MonoBehaviour
     {
         if (!ballServed) return;
         _scoresMainPanel.SetActive(false);
-        _scoresSidePanel.SetActive(false);
+        _scoresSidePanel.SetActive(true);
         _scorerText.gameObject.SetActive(false);
     }
 
