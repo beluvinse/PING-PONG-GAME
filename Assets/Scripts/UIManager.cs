@@ -5,8 +5,8 @@ using UnityEngine.UI;
 
 public class UIManager : MonoBehaviour
 {
-    [Header("References")] [SerializeField]
-    private MatchController _matchController;
+    [Header("References")] 
+    [SerializeField] private MatchController _matchController;
 
     [SerializeField] private GameObject _matchEndedPanel;
     [SerializeField] private GameObject _pausePanel;
@@ -17,16 +17,19 @@ public class UIManager : MonoBehaviour
     [SerializeField] private Animator _scoresAnimator;
     [SerializeField] private Animator _matchAnimator;
 
-    [Header("Score UI")] [SerializeField] private TextMeshProUGUI[] playerScoreText;
-    [SerializeField] private TextMeshProUGUI[] aiScoreText;
+    [Header("Score UI")]
+    [SerializeField] private TextMeshProUGUI[] _playerScoreText;
+    [SerializeField] private TextMeshProUGUI[] _aiScoreText;
     [SerializeField] private TextMeshProUGUI _scorerText;
     [SerializeField] private TextMeshProUGUI _serverText;
     [SerializeField] private TextMeshProUGUI _gameText;
     [SerializeField] private TextMeshProUGUI _matchOverText;
     [SerializeField] private TextMeshProUGUI _firstTo5Text;
 
-    [Header("Buttons")] [SerializeField] private Button _rematchButton;
+    [Header("Buttons")] 
+    [SerializeField] private Button _rematchButton;
     [SerializeField] private Button _quitButton;
+    [SerializeField] private Button _quitButtonPause;
 
     [SerializeField] private float _messagesDuration = 1.5f;
 
@@ -66,6 +69,21 @@ public class UIManager : MonoBehaviour
             TogglePause();
     }
 
+    private void SetUpListeners()
+    {
+        _matchController.OnBallServed += OnBallServed;
+        _matchController.OnServerAnnounced += OnServerAnnounced;
+        _matchController.OnPointWon += OnPointWon;
+        _matchController.OnRallyStarted += OnRallyStarted;
+        _matchController.OnMatchOver += OnMatchOver;
+        _matchController.OnTieBreak += OnTieBreak;
+        _matchController.OnMatchPoint += OnMatchPoint;
+
+        _rematchButton.onClick.AddListener(OnRematchClicked);
+        _quitButton.onClick.AddListener(OnQuitClicked);
+        _quitButtonPause.onClick.AddListener(OnQuitClicked);
+    }
+    
     private void TogglePause()
     {
         if (_matchEndedPanel.activeSelf) return;
@@ -86,29 +104,15 @@ public class UIManager : MonoBehaviour
     private void OnRematchClicked()
     {
         _firstRally = true;
-        foreach (var t in playerScoreText)
+        foreach (var t in _playerScoreText)
             t.text = "0";
-        foreach (var t in aiScoreText)
+        foreach (var t in _aiScoreText)
             t.text = "0";
         _matchController.RestartGame();
         _matchEndedPanel.SetActive(false);
         _firstTo5Text.gameObject.SetActive(true);
     }
-
-    private void SetUpListeners()
-    {
-        _matchController.OnBallServed += OnBallServed;
-        _matchController.OnServerAnnounced += OnServerAnnounced;
-        _matchController.OnPointWon += OnPointWon;
-        _matchController.OnRallyStarted += OnRallyStarted;
-        _matchController.OnMatchOver += OnMatchOver;
-        _matchController.OnTieBreak += OnTieBreak;
-        _matchController.OnMatchPoint += OnMatchPoint;
-
-        _rematchButton.onClick.AddListener(OnRematchClicked);
-        _quitButton.onClick.AddListener(OnQuitClicked);
-    }
-
+    
     private void OnTieBreak()
     {
         _gameText.text = GAME_TIEBREAK;
@@ -218,7 +222,7 @@ public class UIManager : MonoBehaviour
     private IEnumerator UpdateScore(MatchController.Side scoreSide, float seconds)
     {
         yield return new WaitForSeconds(seconds);
-        var texts = scoreSide == MatchController.Side.Player ? playerScoreText : aiScoreText;
+        var texts = scoreSide == MatchController.Side.Player ? _playerScoreText : _aiScoreText;
         var score = scoreSide == MatchController.Side.Player
             ? _matchController.playerScore.ToString()
             : _matchController.aiScore.ToString();
@@ -282,5 +286,9 @@ public class UIManager : MonoBehaviour
         _matchController.OnMatchOver -= OnMatchOver;
         _matchController.OnTieBreak -= OnTieBreak;
         _matchController.OnMatchPoint -= OnMatchPoint;
+
+        _rematchButton.onClick.RemoveAllListeners();
+        _quitButton.onClick.RemoveAllListeners();
+        _quitButtonPause.onClick.RemoveAllListeners();
     }
 }

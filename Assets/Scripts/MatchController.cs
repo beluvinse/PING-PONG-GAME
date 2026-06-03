@@ -73,24 +73,7 @@ public class MatchController : MonoBehaviour
     public void RegisterBallOut() => _currentState?.OnBallOut();
 
     private bool isServeReady;
-
-    // public void StartServeDelay(float delay, Action onReady)
-    // {
-    //     isServeReady = false;
-    //     StartCoroutine(ServeDelayRoutine(delay, onReady));
-    // }
-    //
-    // private IEnumerator ServeDelayRoutine(float delay, Action onReady)
-    // {
-    //     yield return new WaitForSeconds(delay);
-    //     isServeReady = true;
-    //     onReady?.Invoke();
-    // }
-    //
-    // public void StartDelayMatchOver(float delay, Action onReady)
-    // {
-    //     StartCoroutine(MatchOverRoutine(delay, onReady));
-    // }
+    
     public void StartDelay(float delay, Action onComplete)
     {
         StartCoroutine(DelayRoutine(delay, onComplete));

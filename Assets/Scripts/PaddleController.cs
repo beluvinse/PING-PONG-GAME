@@ -124,7 +124,7 @@ public class PaddleController : MonoBehaviour
     
     private float CalculateTargetY()
     {
-        if (!_matchController.ballServed)
+        if (!_matchController.ballServed || !_matchController.IsRallyActive)
             return _bounds.center.y;
         
         var ballY = _ballController.transform.position.y;
@@ -135,11 +135,11 @@ public class PaddleController : MonoBehaviour
             return _bounds.center.y;
 
         var distanceToBall = Vector3.Distance(transform.position, _ballController.transform.position);
+        
         if (distanceToBall < _closeDistanceThreshold)
             return ballY;
 
-        return Mathf.Clamp(Mathf.Lerp(_bounds.center.y, ballY, _yInfluence), _bounds.min.y, _bounds.max.y
-        );
+        return Mathf.Clamp(Mathf.Lerp(_bounds.center.y, ballY, _yInfluence), _bounds.min.y, _bounds.max.y);
     }
     
     private void RotatePaddle()

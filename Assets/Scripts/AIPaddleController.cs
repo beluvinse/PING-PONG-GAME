@@ -80,8 +80,6 @@ public class AIPaddleController : MonoBehaviour
         return targetPos;
     }
 
-
-
     private float CalculateTargetX(Vector3 ballPos, Bounds bounds, bool isAITurn, bool bouncedOnMySide,
         bool isBallOnAISide, float distanceToBall)
     {
