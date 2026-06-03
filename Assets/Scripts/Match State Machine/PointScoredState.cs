@@ -1,6 +1,3 @@
-using System.Security.Cryptography;
-using UnityEngine;
-
 public class PointScoredState : BaseMatchState
 {
     private readonly MatchController.Side _winner;
@@ -19,6 +16,8 @@ public class PointScoredState : BaseMatchState
 
         Match.OnPointWon?.Invoke(_winner);
 
+        Match.CheckSpecialScoreStates();
+        
         if (Match.IsMatchOver())
         {
             Match.TransitionTo(new MatchOverState(Match, _winner));

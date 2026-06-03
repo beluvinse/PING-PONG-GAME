@@ -25,6 +25,8 @@ public class MatchController : MonoBehaviour
     public Action<Side> OnServerAnnounced;
     public Action<bool> OnBallServed;
     public Action OnRallyStarted;
+    public Action OnTieBreak;
+    public Action OnMatchPoint;
 
     public bool IsRallyActive => _currentState is RallyState;
     
@@ -32,7 +34,7 @@ public class MatchController : MonoBehaviour
     
     private void Start()
     {
-        RestartGame();
+        //RestartGame();
     }
 
     public void RestartGame()
@@ -115,5 +117,20 @@ public class MatchController : MonoBehaviour
             return false;
 
         return Mathf.Abs(playerScore - aiScore) >= 2;
+    }
+    
+    public void CheckSpecialScoreStates()
+    {
+        if (playerScore == 4 && aiScore == 4)
+            OnTieBreak?.Invoke();
+        else if (IsMatchPoint(playerScore, aiScore) || IsMatchPoint(aiScore, playerScore))
+            OnMatchPoint?.Invoke();
+    }
+    
+    private bool IsMatchPoint(int myScore, int opponentScore)
+    {
+        if (myScore < 4) return false;
+        if (myScore == 4 && opponentScore < 4) return true;
+        return myScore == opponentScore + 1;
     }
 }

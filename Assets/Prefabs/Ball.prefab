@@ -258,7 +258,7 @@ MonoBehaviour:
   _hitOffsetX: 0.2
   _tableMargin: 0.4
   _aimMultiplier: 1.5
-  _assistBlend: 0.7
+  _assistBlend: 0.9
   _minFinalSpeed: 0.8
   _maxFinalSpeed: 2
 --- !u!135 &6902005455477080651

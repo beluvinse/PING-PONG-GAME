@@ -120,7 +120,7 @@ public class BallController : MonoBehaviour
 
         if (!(transform.position.y <= tableY)) return;
         
-        Vector3 pos = transform.position;
+        var pos = transform.position;
         pos.y = tableY;
         transform.position = pos;
         velocity.y = Mathf.Abs(velocity.y) * bounceForce;
@@ -131,7 +131,6 @@ public class BallController : MonoBehaviour
     private bool IsAboveTable()
     {
         var bounds = tableCollider.bounds;
-
         var pos = transform.position;
 
         return
@@ -174,8 +173,8 @@ public class BallController : MonoBehaviour
     {
         var normalized = Mathf.Clamp01(paddleVelocity.magnitude / maxSpeed);
         normalized = Mathf.Sqrt(normalized);
-        var extraPower = Mathf.Lerp(0.05f, 0.6f, normalized);
-        return Mathf.InverseLerp(0.05f, 0.5f, extraPower);
+        var extraPower = Mathf.Lerp(0.05f, 0.4f, normalized);
+        return Mathf.InverseLerp(0.05f, 0.4f, extraPower);
     }
 
     private float CalculateDynamicMaxZ(Transform paddleTransform)
@@ -191,10 +190,7 @@ public class BallController : MonoBehaviour
     {
         var isPlayerSide = CheckCurrentSide() == MatchController.Side.Player;
 
-        if (isPlayerSide)
-            return CalculatePlayerZVelocity(paddleVelocity, power01, dynamicMaxZ);
-        else
-            return CalculateAIZVelocity(dynamicMaxZ);
+        return isPlayerSide ? CalculatePlayerZVelocity(paddleVelocity, power01, dynamicMaxZ) : CalculateAIZVelocity(dynamicMaxZ);
     }
 
     private float CalculatePlayerZVelocity(Vector3 paddleVelocity, float power01, float dynamicMaxZ)
