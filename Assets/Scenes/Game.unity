@@ -586,6 +586,7 @@ MonoBehaviour:
   _paddleCollider: {fileID: 95136187}
   _playerArea: {fileID: 471589871}
   _playerServeArea: {fileID: 697497827}
+  _paddleRenderer: {fileID: 6126375017719796357}
   _yFollowSpeed: 12
   _yInfluence: 0.3
   _maxTilt: 50
@@ -593,7 +594,6 @@ MonoBehaviour:
   _paddleSpeed: 15
   _closeDistanceThreshold: 0.5
   _closeFollowSpeed: 15
-  _paddleRenderer: {fileID: 6126375017719796357}
   _inactiveAlpha: 0.4
 --- !u!65 &95136187
 BoxCollider:
@@ -959,11 +959,23 @@ PrefabInstance:
       value: 
       objectReference: {fileID: 95136185}
     - target: {fileID: 1974119335731460411, guid: b2b5ada8e9c44764b8a4f75580365e16, type: 3}
+      propertyPath: _playerPaddle
+      value: 
+      objectReference: {fileID: 95136185}
+    - target: {fileID: 1974119335731460411, guid: b2b5ada8e9c44764b8a4f75580365e16, type: 3}
       propertyPath: tableCollider
       value: 
       objectReference: {fileID: 7306675911164184045}
     - target: {fileID: 1974119335731460411, guid: b2b5ada8e9c44764b8a4f75580365e16, type: 3}
+      propertyPath: _tableCollider
+      value: 
+      objectReference: {fileID: 7306675911164184045}
+    - target: {fileID: 1974119335731460411, guid: b2b5ada8e9c44764b8a4f75580365e16, type: 3}
       propertyPath: opponentPaddle
+      value: 
+      objectReference: {fileID: 3152068740202314427}
+    - target: {fileID: 1974119335731460411, guid: b2b5ada8e9c44764b8a4f75580365e16, type: 3}
+      propertyPath: _opponentPaddle
       value: 
       objectReference: {fileID: 3152068740202314427}
     - target: {fileID: 1974119335731460411, guid: b2b5ada8e9c44764b8a4f75580365e16, type: 3}
@@ -995,7 +1007,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!224 &427391718
 RectTransform:
   m_ObjectHideFlags: 0
@@ -4598,7 +4610,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d61c4e3f61eb68548bf2cb76f2e609f6, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  _side: 1
   _matchController: {fileID: 1625228612}
   _ballController: {fileID: 137000248}
   _paddleVisual: {fileID: 1241783912}
@@ -4607,7 +4618,7 @@ MonoBehaviour:
   _hitDistance: 0.05
   _maxTilt: 50
   _xMoveSpeed: 8
-  _zMoveSpeed: 7.5
+  _zMoveSpeed: 7.2
   _yMoveSpeed: 10
   _minAttackSpeed: 0.2
   _maxAttackSpeed: 1
@@ -4635,8 +4646,8 @@ BoxCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
-  m_Size: {x: 0.04355681, y: 0.24955256, z: 0.15941012}
-  m_Center: {x: 0.007810354, y: -0.029504336, z: 0}
+  m_Size: {x: 0.04355681, y: 0.24560834, z: 0.15254393}
+  m_Center: {x: 0.007810354, y: -0.031476445, z: 0.000021591783}
 --- !u!23 &8228848336188194436
 MeshRenderer:
   m_ObjectHideFlags: 0

@@ -10,6 +10,7 @@ public class PaddleController : MonoBehaviour
     [SerializeField] private BoxCollider _paddleCollider;
     [SerializeField] private BoxCollider _playerArea;
     [SerializeField] private BoxCollider _playerServeArea;
+    [SerializeField] private Renderer _paddleRenderer;
     
     [Header("Values")]
     [SerializeField] private float _yFollowSpeed = 10f;
@@ -19,23 +20,19 @@ public class PaddleController : MonoBehaviour
     [SerializeField] private float _paddleSpeed; 
     [SerializeField] private float _closeDistanceThreshold = 0.4f;
     [SerializeField] private float _closeFollowSpeed = 15f;
+    [SerializeField] private float _inactiveAlpha = 0.4f;
         
     private MatchController.Side _side;
     private Bounds _bounds;
     private Plane _movePlane;
     private Vector3 _lastPos;
     private Vector3 _paddleVelocity;
-    
-    [SerializeField] private Renderer _paddleRenderer;
-
-    [SerializeField] private float _inactiveAlpha = 0.4f;
-
     private bool _isDragging;
     
     private void Awake()
     {
-        _matchController.OnBallServed += OnBallServed;
         _side = MatchController.Side.Player;
+        _matchController.OnBallServed += OnBallServed;
         SetupMovementArea(false);
         _isDragging = false;
 

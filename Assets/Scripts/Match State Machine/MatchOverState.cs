@@ -9,6 +9,6 @@ public class MatchOverState : BaseMatchState
 
     public override void Enter()
     {
-        Match.StartDelayMatchOver(2f, () => Match.OnMatchOver?.Invoke(winner));
+        Match.StartDelay(2f, () => Match.OnMatchOver?.Invoke(winner));
     }
 }

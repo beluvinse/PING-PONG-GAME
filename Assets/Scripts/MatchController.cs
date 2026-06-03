@@ -32,11 +32,6 @@ public class MatchController : MonoBehaviour
     
     private BaseMatchState _currentState;
     
-    private void Start()
-    {
-        //RestartGame();
-    }
-
     public void RestartGame()
     {
         server = Side.Player;
@@ -79,22 +74,38 @@ public class MatchController : MonoBehaviour
 
     private bool isServeReady;
 
+    // public void StartServeDelay(float delay, Action onReady)
+    // {
+    //     isServeReady = false;
+    //     StartCoroutine(ServeDelayRoutine(delay, onReady));
+    // }
+    //
+    // private IEnumerator ServeDelayRoutine(float delay, Action onReady)
+    // {
+    //     yield return new WaitForSeconds(delay);
+    //     isServeReady = true;
+    //     onReady?.Invoke();
+    // }
+    //
+    // public void StartDelayMatchOver(float delay, Action onReady)
+    // {
+    //     StartCoroutine(MatchOverRoutine(delay, onReady));
+    // }
+    public void StartDelay(float delay, Action onComplete)
+    {
+        StartCoroutine(DelayRoutine(delay, onComplete));
+    }
+
+    private IEnumerator DelayRoutine(float delay, Action onComplete)
+    {
+        yield return new WaitForSeconds(delay);
+        onComplete?.Invoke();
+    }
+
     public void StartServeDelay(float delay, Action onReady)
     {
         isServeReady = false;
-        StartCoroutine(ServeDelayRoutine(delay, onReady));
-    }
-    
-    private IEnumerator ServeDelayRoutine(float delay, Action onReady)
-    {
-        yield return new WaitForSeconds(delay);
-        isServeReady = true;
-        onReady?.Invoke();
-    }
-
-    public void StartDelayMatchOver(float delay, Action onReady)
-    {
-        StartCoroutine(MatchOverRoutine(delay, onReady));
+        StartDelay(delay, () => { isServeReady = true; onReady?.Invoke(); });
     }
 
     private IEnumerator MatchOverRoutine(float delay, Action onReady)

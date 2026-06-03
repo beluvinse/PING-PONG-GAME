@@ -4,8 +4,6 @@ using Random = UnityEngine.Random;
 
 public class AIPaddleController : MonoBehaviour
 {
-    [SerializeField] private MatchController.Side _side;
-    
     [Header("References")] 
     [SerializeField] private MatchController _matchController;
     [SerializeField] private BallController _ballController;
@@ -21,7 +19,13 @@ public class AIPaddleController : MonoBehaviour
     [SerializeField] private float _yMoveSpeed = 10f;
     [SerializeField] private float _minAttackSpeed = .2f;
     [SerializeField] private float _maxAttackSpeed = 1f;
+    [SerializeField] private float _retreatOffset = 2f;
+    [SerializeField] private float _attackOffset = 0.2f;
+    [SerializeField] private float _prepareOffset = 0.8f;
+    [SerializeField] private float _attackThreshold = 0.2f;
+    [SerializeField] private float _yTrackingBias = 0.35f;
     
+    private MatchController.Side _side;
     private Bounds _bounds;
     private Vector3 _lastPos;
     private Vector3 _paddleVelocity;
@@ -36,11 +40,8 @@ public class AIPaddleController : MonoBehaviour
         _matchController.OnBallServed += OnBallServed;
     }
     
-    void Update()
+    private void Update()
     {
-        if (_ballController == null)
-            return;
-
         RotatePaddle();
         
         CheckBallHit();
@@ -79,11 +80,7 @@ public class AIPaddleController : MonoBehaviour
         return targetPos;
     }
 
-    [SerializeField] private float _retreatOffset = 2f;
-    [SerializeField] private float _attackOffset = 0.2f;
-    [SerializeField] private float _prepareOffset = 0.8f;
-    [SerializeField] private float _attackThreshold = 0.2f;
-    [SerializeField] private float _yTrackingBias = 0.35f;
+
 
     private float CalculateTargetX(Vector3 ballPos, Bounds bounds, bool isAITurn, bool bouncedOnMySide,
         bool isBallOnAISide, float distanceToBall)

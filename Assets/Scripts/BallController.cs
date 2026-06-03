@@ -1,4 +1,3 @@
-using System.Collections;
 using UnityEngine;
 using Random = UnityEngine.Random;
 
@@ -6,17 +5,17 @@ public class BallController : MonoBehaviour
 {
     [Header("References")]
     [SerializeField] private MatchController _matchController;
-    [SerializeField] private Transform playerPaddle;
-    [SerializeField] private Transform opponentPaddle;
-    [SerializeField] private BoxCollider tableCollider;
+    [SerializeField] private Transform _playerPaddle;
+    [SerializeField] private Transform _opponentPaddle;
+    [SerializeField] private BoxCollider _tableCollider;
     [SerializeField] private TrailRenderer _trail;
     [SerializeField] private MeshRenderer _renderer;
     
     [Header("Movement")]
-    [SerializeField] private float gravity = 3.2f;
-    [SerializeField] private float maxSpeed = 3f;
-    [SerializeField] private float bounceForce = 0.85f;
-    [SerializeField] private float maxZ = .6f;
+    [SerializeField] private float _gravity = 3.2f;
+    [SerializeField] private float _maxSpeed = 3f;
+    [SerializeField] private float _bounceForce = 0.85f;
+    [SerializeField] private float _maxZ = .6f;
     [SerializeField] float _serveY = -0.2f;
     [SerializeField] float _serveSpeed = 2f;
     [SerializeField] private float _hitOffsetX = 0.2f; 
@@ -26,15 +25,15 @@ public class BallController : MonoBehaviour
     [SerializeField] private float _minFinalSpeed = 0.8f;
     [SerializeField] private float _maxFinalSpeed = 2f;
     
-    private Vector3 velocity;
-    private float ballServePosOpponent;
-    private float ballServePosPlayer;
+    private Vector3 _velocity;
+    private float _ballServePosOpponent;
+    private float _ballServePosPlayer;
     
     private void Awake()
     {
-        var bounds = tableCollider.bounds;
-        ballServePosPlayer =  bounds.max.x + .05f;
-        ballServePosOpponent = bounds.min.x - .05f;
+        var bounds = _tableCollider.bounds;
+        _ballServePosPlayer =  bounds.max.x + .05f;
+        _ballServePosOpponent = bounds.min.x - .05f;
         _matchController.OnBallServed += SetBallForServe;
         _matchController.OnRallyStarted += RallyStarted;
         _trail.emitting = false;
@@ -42,7 +41,7 @@ public class BallController : MonoBehaviour
 
     private void RallyStarted()
     {
-        velocity = Vector3.zero;
+        _velocity = Vector3.zero;
         _trail.emitting = false;
         _trail.Clear();
         _renderer.enabled = false;
@@ -79,35 +78,35 @@ public class BallController : MonoBehaviour
     {
         transform.position = paddle.position;
 
-        Vector3 dir = side == MatchController.Side.Player ? Vector3.left : Vector3.right;
+        var dir = side == MatchController.Side.Player ? Vector3.left : Vector3.right;
 
         dir.y = _serveY;
         dir.Normalize();
 
-        velocity = dir * _serveSpeed;
+        _velocity = dir * _serveSpeed;
         _matchController.SetBallServed();
         _trail.emitting = true;
     }
     
     private void HandleServe()
     {
-        velocity = Vector3.zero;
+        _velocity = Vector3.zero;
         
         transform.position = _matchController.server == MatchController.Side.Player ? 
-            new Vector3(ballServePosPlayer, playerPaddle.position.y, playerPaddle.position.z)
-            : new Vector3(ballServePosOpponent, opponentPaddle.position.y, opponentPaddle.position.z);
+            new Vector3(_ballServePosPlayer, _playerPaddle.position.y, _playerPaddle.position.z)
+            : new Vector3(_ballServePosOpponent, _opponentPaddle.position.y, _opponentPaddle.position.z);
     }
 
     private void MoveBall()
     {
-        velocity.y -= gravity * Time.deltaTime;
-        velocity = Vector3.ClampMagnitude(velocity, maxSpeed);
-        transform.position += velocity * Time.deltaTime;
+        _velocity.y -= _gravity * Time.deltaTime;
+        _velocity = Vector3.ClampMagnitude(_velocity, _maxSpeed);
+        transform.position += _velocity * Time.deltaTime;
     }
 
     public MatchController.Side CheckCurrentSide()
     {
-        var isPlayerSide = transform.position.x > tableCollider.bounds.center.x;
+        var isPlayerSide = transform.position.x > _tableCollider.bounds.center.x;
         
         return isPlayerSide? MatchController.Side.Player : MatchController.Side.AI;
     }
@@ -117,7 +116,7 @@ public class BallController : MonoBehaviour
         if (!IsAboveTable())
             return;
 
-        var bounds = tableCollider.bounds;
+        var bounds = _tableCollider.bounds;
         var tableY = bounds.max.y;
 
         if (!(transform.position.y <= tableY)) return;
@@ -125,14 +124,14 @@ public class BallController : MonoBehaviour
         var pos = transform.position;
         pos.y = tableY;
         transform.position = pos;
-        velocity.y = Mathf.Abs(velocity.y) * bounceForce;
+        _velocity.y = Mathf.Abs(_velocity.y) * _bounceForce;
 
         _matchController.RegisterBounce(CheckCurrentSide());
     }
 
     private bool IsAboveTable()
     {
-        var bounds = tableCollider.bounds;
+        var bounds = _tableCollider.bounds;
         var pos = transform.position;
 
         return
@@ -173,7 +172,7 @@ public class BallController : MonoBehaviour
 
     private float CalculatePower(Vector3 paddleVelocity)
     {
-        var normalized = Mathf.Clamp01(paddleVelocity.magnitude / maxSpeed);
+        var normalized = Mathf.Clamp01(paddleVelocity.magnitude / _maxSpeed);
         normalized = Mathf.Sqrt(normalized);
         var extraPower = Mathf.Lerp(0.05f, 0.4f, normalized);
         return Mathf.InverseLerp(0.05f, 0.4f, extraPower);
@@ -181,11 +180,11 @@ public class BallController : MonoBehaviour
 
     private float CalculateDynamicMaxZ(Transform paddleTransform)
     {
-        var bounds = tableCollider.bounds;
+        var bounds = _tableCollider.bounds;
         var halfWidth = (bounds.max.x - bounds.min.x) * 0.5f;
         var distanceToNet = Mathf.Abs(paddleTransform.position.x - bounds.center.x);
         var t = 1f - Mathf.Clamp01(distanceToNet / halfWidth);
-        return Mathf.Lerp(maxZ / 2f, maxZ, t);
+        return Mathf.Lerp(_maxZ / 2f, _maxZ, t);
     }
 
     private float CalculateZVelocity(Vector3 paddleVelocity, float power01, float dynamicMaxZ)
@@ -199,7 +198,7 @@ public class BallController : MonoBehaviour
     {
         var playerSide = Mathf.Clamp(paddleVelocity.z, -dynamicMaxZ, dynamicMaxZ);
 
-        var distanceFromCenter = transform.position.z - tableCollider.bounds.center.z;
+        var distanceFromCenter = transform.position.z - _tableCollider.bounds.center.z;
         var correction = Mathf.Clamp(-distanceFromCenter, -dynamicMaxZ, dynamicMaxZ);
 
         var assistAmount = Mathf.Pow(1f - power01, 2f);
@@ -209,7 +208,7 @@ public class BallController : MonoBehaviour
 
     private float CalculateAIZVelocity(float dynamicMaxZ)
     {
-        var bounds = tableCollider.bounds;
+        var bounds = _tableCollider.bounds;
         var targetZ = Random.Range(bounds.min.z + _tableMargin, bounds.max.z - _tableMargin);
         var aim = targetZ - transform.position.z;
         return Mathf.Clamp(aim * _aimMultiplier, -dynamicMaxZ, dynamicMaxZ);
@@ -223,7 +222,7 @@ public class BallController : MonoBehaviour
         dir.z = zVelocity;
         dir.y = Mathf.Lerp(1f, 0.3f, power01);
 
-        var bounds = tableCollider.bounds;
+        var bounds = _tableCollider.bounds;
         var halfWidth = (bounds.max.x - bounds.min.x) * 0.5f;
         var distanceToNet = Mathf.Abs(paddleTransform.position.x - bounds.center.x);
         var t = 1f - Mathf.Clamp01(distanceToNet / halfWidth);
@@ -232,6 +231,6 @@ public class BallController : MonoBehaviour
         finalSpeed += Mathf.Lerp(0f, 0.8f, 1f - t);
 
         dir.Normalize();
-        velocity = dir * finalSpeed;
+        _velocity = dir * finalSpeed;
     }
 }
