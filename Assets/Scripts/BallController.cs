@@ -10,6 +10,7 @@ public class BallController : MonoBehaviour
     [SerializeField] private Transform opponentPaddle;
     [SerializeField] private BoxCollider tableCollider;
     [SerializeField] private TrailRenderer _trail;
+    [SerializeField] private MeshRenderer _renderer;
     
     [Header("Movement")]
     [SerializeField] private float gravity = 3.2f;
@@ -32,8 +33,8 @@ public class BallController : MonoBehaviour
     private void Awake()
     {
         var bounds = tableCollider.bounds;
-        ballServePosPlayer =  bounds.max.x + .1f;
-        ballServePosOpponent = bounds.min.x - .1f;
+        ballServePosPlayer =  bounds.max.x + .05f;
+        ballServePosOpponent = bounds.min.x - .05f;
         _matchController.OnBallServed += SetBallForServe;
         _matchController.OnRallyStarted += RallyStarted;
         _trail.emitting = false;
@@ -41,15 +42,16 @@ public class BallController : MonoBehaviour
 
     private void RallyStarted()
     {
+        velocity = Vector3.zero;
         _trail.emitting = false;
         _trail.Clear();
-        transform.gameObject.SetActive(false);
+        _renderer.enabled = false;
     }
 
     private void SetBallForServe(bool ballServed)
     {
         if(ballServed) return;
-        transform.gameObject.SetActive(true);
+        _renderer.enabled = true;
     }
 
     private void Update()

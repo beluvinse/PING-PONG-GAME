@@ -249,6 +249,7 @@ MonoBehaviour:
   opponentPaddle: {fileID: 0}
   tableCollider: {fileID: 0}
   _trail: {fileID: 2812548143457332165}
+  _renderer: {fileID: 337544698041223145}
   gravity: 3.2
   maxSpeed: 3
   bounceForce: 0.85
