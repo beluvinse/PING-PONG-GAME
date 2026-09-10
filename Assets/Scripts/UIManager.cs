@@ -39,6 +39,8 @@ public class UIManager : MonoBehaviour
     private const string DEFEAT_TEXT = "DEFEAT";
     private const string PLAYER_SERVES_TEXT = "Your serve";
     private const string OPPONENT_SERVES_TEXT = "Opponent to serve";
+    private const string RESUME_LABEL = "Resume";
+    private const string MAIN_MENU_LABEL = "Main menu";
 
     private const string SCORES_ANIMATOR_SHOWMAINPANEL = "showMainPanel";
     private const string SCORES_ANIMATOR_MATCHOVER = "matchOver";
@@ -49,10 +51,13 @@ public class UIManager : MonoBehaviour
     private const string GAME_TIEBREAK = "TIE BREAK";
 
     private bool _firstRally = true;
+    private Button _resumeButton;
+    private Coroutine _scorerTypeRoutine;
 
     private void Awake()
     {
         SetUpListeners();
+        BuildPauseMenu();
 
         _matchEndedPanel.SetActive(false);
         _scoresSidePanel.SetActive(false);
@@ -81,9 +86,39 @@ public class UIManager : MonoBehaviour
 
         _rematchButton.onClick.AddListener(OnRematchClicked);
         _quitButton.onClick.AddListener(OnQuitClicked);
-        _quitButtonPause.onClick.AddListener(OnQuitClicked);
+        _quitButtonPause.onClick.AddListener(OnMainMenuClicked);
     }
-    
+
+    private void BuildPauseMenu()
+    {
+        // The pause panel originally only had a quit-to-desktop button.
+        // Repurpose it as "Main menu" and clone it to add a "Resume" button above.
+        SetButtonLabel(_quitButtonPause, MAIN_MENU_LABEL);
+
+        _resumeButton = Instantiate(_quitButtonPause, _quitButtonPause.transform.parent);
+        _resumeButton.name = "ResumeButton";
+        SetButtonLabel(_resumeButton, RESUME_LABEL);
+        _resumeButton.onClick.AddListener(TogglePause);
+
+        var quitRect = _quitButtonPause.GetComponent<RectTransform>();
+        var resumeRect = _resumeButton.GetComponent<RectTransform>();
+        resumeRect.anchoredPosition = quitRect.anchoredPosition + Vector2.up * (quitRect.rect.height + 14f);
+    }
+
+    private static void SetButtonLabel(Button button, string label)
+    {
+        var tmpLabel = button.GetComponentInChildren<TMP_Text>(true);
+        if (tmpLabel != null)
+        {
+            tmpLabel.text = label;
+            return;
+        }
+
+        var legacyLabel = button.GetComponentInChildren<Text>(true);
+        if (legacyLabel != null)
+            legacyLabel.text = label;
+    }
+
     private void TogglePause()
     {
         if (_matchEndedPanel.activeSelf) return;
@@ -99,6 +134,32 @@ public class UIManager : MonoBehaviour
 #else
             Application.Quit();
 #endif
+    }
+
+    private void OnMainMenuClicked()
+    {
+        Time.timeScale = 1f;
+        _pausePanel.SetActive(false);
+
+        StopAllCoroutines();
+        _scorerTypeRoutine = null;
+        _scorerText.text = "";
+        _scorerText.maxVisibleCharacters = int.MaxValue;
+        _gameText.gameObject.SetActive(false);
+        _matchOverText.gameObject.SetActive(false);
+        _firstTo5Text.text = "";
+        _firstRally = true;
+
+        foreach (var t in _playerScoreText)
+            t.text = "0";
+        foreach (var t in _aiScoreText)
+            t.text = "0";
+
+        _scoresAnimator.SetBool(SCORES_ANIMATOR_SHOWMAINPANEL, false);
+        _scoresSidePanel.SetActive(false);
+
+        _matchController.StopMatch();
+        _matchEndedPanel.SetActive(true);
     }
 
     private void OnRematchClicked()
@@ -149,8 +210,12 @@ public class UIManager : MonoBehaviour
         var newText = scorerSide.Equals(MatchController.Side.Player) ? PLAYER_SCORED_TEXT : AI_SCORED_TEXT;
         _scorerText.text = newText;
 
-        StartCoroutine(TypeText(_scorerText, newText));
+        if (_scorerTypeRoutine != null)
+            StopCoroutine(_scorerTypeRoutine);
+        _scorerTypeRoutine = StartCoroutine(TypeText(_scorerText, newText));
         StartCoroutine(UpdateScore(scorerSide, .5f));
+
+        ImpactEffects.Instance.Shake(0.03f, 0.45f);
     }
 
     private void OnServerAnnounced(MatchController.Side serverSide)
@@ -164,6 +229,7 @@ public class UIManager : MonoBehaviour
         if (!ballServed) return;
         _scoresAnimator.SetBool(SCORES_ANIMATOR_SHOWMAINPANEL, false);
         _scorerText.text = "";
+        _scorerText.maxVisibleCharacters = int.MaxValue;
     }
 
     private IEnumerator TextPop(TextMeshProUGUI text)
@@ -245,15 +311,19 @@ public class UIManager : MonoBehaviour
         }
 
         text.text = newValue;
+        rect.localScale = Vector3.one * 1.35f;
         t = 0;
         while (t < duration)
         {
             t += Time.deltaTime;
-            rect.anchoredPosition = Vector2.Lerp(topPos, originalPos, t / duration);
+            var progress = t / duration;
+            rect.anchoredPosition = Vector2.Lerp(topPos, originalPos, progress);
+            rect.localScale = Vector3.Lerp(Vector3.one * 1.35f, Vector3.one, progress);
             yield return null;
         }
 
         rect.anchoredPosition = originalPos;
+        rect.localScale = Vector3.one;
     }
 
     private IEnumerator TypeText(TextMeshProUGUI text, string message)
@@ -290,5 +360,7 @@ public class UIManager : MonoBehaviour
         _rematchButton.onClick.RemoveAllListeners();
         _quitButton.onClick.RemoveAllListeners();
         _quitButtonPause.onClick.RemoveAllListeners();
+        if (_resumeButton != null)
+            _resumeButton.onClick.RemoveAllListeners();
     }
 }

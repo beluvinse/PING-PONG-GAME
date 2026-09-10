@@ -1,3 +1,4 @@
+using System.Collections;
 using UnityEngine;
 using Random = UnityEngine.Random;
 
@@ -25,10 +26,29 @@ public class BallController : MonoBehaviour
     [SerializeField] private float _minFinalSpeed = 0.8f;
     [SerializeField] private float _maxFinalSpeed = 2f;
     
+    [Header("Impact FX")]
+    [SerializeField] private Color _playerHitColor = new Color(0.9f, 0.35f, 0.3f);
+    [SerializeField] private Color _aiHitColor = new Color(0.35f, 0.5f, 0.95f);
+
+    [Header("Readability Aids")]
+    [SerializeField] private Color _shadowColor = new Color(0f, 0f, 0f, 0.4f);
+    [SerializeField] private Color _landingMarkerColor = new Color(1f, 0.5f, 0.35f, 0.75f);
+    [SerializeField] private Color _landingAlignedColor = new Color(0.35f, 0.9f, 0.45f, 0.85f);
+    [SerializeField] private float _shadowMaxHeight = 0.8f;
+    [SerializeField] private float _alignThresholdZ = 0.18f;
+
     private Vector3 _velocity;
     private float _ballServePosOpponent;
     private float _ballServePosPlayer;
-    
+    private Vector3 _baseScale;
+    private float _ballDiameter;
+    private Coroutine _squashRoutine;
+    private Transform _shadowBlob;
+    private Transform _landingMarker;
+    private Transform _paddleShadow;
+    private Material _shadowMaterial;
+    private Material _landingMaterial;
+
     private void Awake()
     {
         var bounds = _tableCollider.bounds;
@@ -37,6 +57,141 @@ public class BallController : MonoBehaviour
         _matchController.OnBallServed += SetBallForServe;
         _matchController.OnRallyStarted += RallyStarted;
         _trail.emitting = false;
+        _baseScale = transform.localScale;
+        _ballDiameter = _renderer.bounds.size.x;
+        if (_ballDiameter <= 0.001f) _ballDiameter = 0.04f;
+        CreateIndicators();
+    }
+
+    private void CreateIndicators()
+    {
+        var blobShader = Shader.Find("Custom/SoftBlob");
+        if (blobShader == null)
+        {
+            Debug.LogWarning("BallController: shader 'Custom/SoftBlob' not found - ball shadow and landing marker disabled.");
+            return;
+        }
+
+        _shadowBlob = CreateIndicatorQuad("BallShadow", blobShader, _shadowColor, 0f, out _shadowMaterial);
+        _landingMarker = CreateIndicatorQuad("LandingMarker", blobShader, _landingMarkerColor, 0.62f, out _landingMaterial);
+        _paddleShadow = CreateIndicatorQuad("PaddleShadow", blobShader, new Color(0f, 0f, 0f, 0.28f), 0f, out _);
+    }
+
+    private static Transform CreateIndicatorQuad(string name, Shader shader, Color color, float innerRadius, out Material material)
+    {
+        var go = GameObject.CreatePrimitive(PrimitiveType.Quad);
+        go.name = name;
+        Destroy(go.GetComponent<Collider>());
+
+        material = new Material(shader);
+        material.SetColor("_Color", color);
+        material.SetFloat("_InnerRadius", innerRadius);
+
+        var quadRenderer = go.GetComponent<MeshRenderer>();
+        quadRenderer.sharedMaterial = material;
+        quadRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+        quadRenderer.receiveShadows = false;
+
+        go.transform.rotation = Quaternion.Euler(90f, 0f, 0f);
+        go.SetActive(false);
+        return go.transform;
+    }
+
+    private void LateUpdate()
+    {
+        UpdateShadowBlob();
+        UpdateLandingMarker();
+        UpdatePaddleShadow();
+    }
+
+    private void UpdatePaddleShadow()
+    {
+        if (_paddleShadow == null || _playerPaddle == null) return;
+
+        // Fixed-height shadow under the player paddle so its depth (z) can be
+        // compared against the ball shadow and the landing ring.
+        var bounds = _tableCollider.bounds;
+        var show = _playerPaddle.gameObject.activeInHierarchy
+                   && _playerPaddle.position.z > bounds.min.z - 0.3f
+                   && _playerPaddle.position.z < bounds.max.z + 0.3f;
+
+        _paddleShadow.gameObject.SetActive(show);
+        if (!show) return;
+
+        _paddleShadow.position = new Vector3(_playerPaddle.position.x, bounds.max.y + 0.002f, _playerPaddle.position.z);
+        var size = _ballDiameter * 3.2f;
+        _paddleShadow.localScale = new Vector3(size, size, 1f);
+    }
+
+    private void UpdateShadowBlob()
+    {
+        if (_shadowBlob == null) return;
+
+        var show = _renderer.enabled && IsAboveTable();
+        _shadowBlob.gameObject.SetActive(show);
+        if (!show) return;
+
+        var tableY = _tableCollider.bounds.max.y;
+        var height01 = Mathf.Clamp01((transform.position.y - tableY) / _shadowMaxHeight);
+
+        _shadowBlob.position = new Vector3(transform.position.x, tableY + 0.003f, transform.position.z);
+
+        // Higher ball -> bigger, fainter shadow
+        var size = _ballDiameter * Mathf.Lerp(1.4f, 2.4f, height01);
+        _shadowBlob.localScale = new Vector3(size, size, 1f);
+
+        var color = _shadowColor;
+        color.a = _shadowColor.a * Mathf.Lerp(1f, 0.4f, height01);
+        _shadowMaterial.SetColor("_Color", color);
+    }
+
+    private void UpdateLandingMarker()
+    {
+        if (_landingMarker == null) return;
+
+        // Only when the ball is in flight and coming toward the player (+x side)
+        var landingPos = Vector3.zero;
+        var show = _matchController.ballServed && _velocity.x > 0.05f
+                   && TryPredictLanding(out landingPos);
+
+        _landingMarker.gameObject.SetActive(show);
+        if (!show) return;
+
+        _landingMarker.position = landingPos;
+        var size = _ballDiameter * 3f;
+        _landingMarker.localScale = new Vector3(size, size, 1f);
+
+        // Green when the paddle is depth-aligned with where the ball will land
+        if (_landingMaterial != null && _playerPaddle != null)
+        {
+            var aligned = Mathf.Abs(_playerPaddle.position.z - landingPos.z) < _alignThresholdZ;
+            _landingMaterial.SetColor("_Color", aligned ? _landingAlignedColor : _landingMarkerColor);
+        }
+    }
+
+    private bool TryPredictLanding(out Vector3 landingPos)
+    {
+        landingPos = default;
+
+        var bounds = _tableCollider.bounds;
+        var tableY = bounds.max.y;
+        var heightAboveTable = transform.position.y - tableY;
+        if (heightAboveTable <= 0f) return false;
+
+        // Ballistic time to reach table height: y0 + vy*t - g*t^2/2 = 0
+        var vy = _velocity.y;
+        var discriminant = vy * vy + 2f * _gravity * heightAboveTable;
+        var time = (vy + Mathf.Sqrt(discriminant)) / _gravity;
+
+        var landX = transform.position.x + _velocity.x * time;
+        var landZ = transform.position.z + _velocity.z * time;
+
+        // Only mark landings on the player's half of the table
+        if (landX < bounds.center.x || landX > bounds.max.x) return false;
+        if (landZ < bounds.min.z || landZ > bounds.max.z) return false;
+
+        landingPos = new Vector3(landX, tableY + 0.004f, landZ);
+        return true;
     }
 
     private void RallyStarted()
@@ -127,6 +282,34 @@ public class BallController : MonoBehaviour
         _velocity.y = Mathf.Abs(_velocity.y) * _bounceForce;
 
         _matchController.RegisterBounce(CheckCurrentSide());
+
+        ImpactEffects.Instance.EmitBurst(transform.position, Color.white, 6);
+        Squash(1.25f, 0.6f);
+    }
+
+    private void Squash(float xzScale, float yScale, float duration = 0.09f)
+    {
+        if (_squashRoutine != null)
+            StopCoroutine(_squashRoutine);
+
+        _squashRoutine = StartCoroutine(SquashRoutine(xzScale, yScale, duration));
+    }
+
+    private IEnumerator SquashRoutine(float xzScale, float yScale, float duration)
+    {
+        var squashed = new Vector3(_baseScale.x * xzScale, _baseScale.y * yScale, _baseScale.z * xzScale);
+        transform.localScale = squashed;
+
+        var elapsed = 0f;
+        while (elapsed < duration)
+        {
+            elapsed += Time.deltaTime;
+            transform.localScale = Vector3.Lerp(squashed, _baseScale, elapsed / duration);
+            yield return null;
+        }
+
+        transform.localScale = _baseScale;
+        _squashRoutine = null;
     }
 
     private bool IsAboveTable()
@@ -146,6 +329,7 @@ public class BallController : MonoBehaviour
         if (!_matchController.ballServed)
         {
             ServeFrom(paddleTransform, _matchController.server);
+            ImpactEffects.Instance.EmitBurst(transform.position, Color.white, 8);
             return;
         }
 
@@ -156,6 +340,13 @@ public class BallController : MonoBehaviour
         var zVelocity = CalculateZVelocity(paddleVelocity, power01, dynamicMaxZ);
 
         ApplyHitVelocity(paddleTransform, power01, zVelocity);
+
+        var isPlayerHit = CheckCurrentSide() == MatchController.Side.Player;
+        ImpactEffects.Instance.EmitBurst(transform.position, isPlayerHit ? _playerHitColor : _aiHitColor, 10);
+        Squash(1.3f, 1.3f);
+
+        if (isPlayerHit)
+            ImpactEffects.Instance.Shake(0.015f, 0.28f);
     }
 
     private void RepositionBallOnHit(Transform paddleTransform)

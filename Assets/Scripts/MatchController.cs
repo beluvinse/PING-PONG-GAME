@@ -40,6 +40,21 @@ public class MatchController : MonoBehaviour
         servesDone = 0;
         TransitionTo(new ServingState(this));
     }
+
+    /// <summary>Aborts the current match and returns to the pre-match idle state (main menu).</summary>
+    public void StopMatch()
+    {
+        StopAllCoroutines();
+        server = Side.Player;
+        playerScore = 0;
+        aiScore = 0;
+        servesDone = 0;
+        ballServed = false;
+        ballBounced = false;
+        bounceCount = 0;
+        isServeReady = false;
+        TransitionTo(new IdleState(this));
+    }
     
 
     public void TransitionTo(BaseMatchState newState)
