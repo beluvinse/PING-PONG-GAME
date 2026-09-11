@@ -24,8 +24,12 @@ public class AIPaddleController : MonoBehaviour
     [SerializeField] private float _prepareOffset = 0.8f;
     [SerializeField] private float _attackThreshold = 0.2f;
     [SerializeField] private float _yTrackingBias = 0.35f;
-    
+    [SerializeField] private float _trackingError = 0.09f;
+    [SerializeField] private float _serveBackOffset = 0f;
+
     private MatchController.Side _side;
+    private bool _wasAITurn;
+    private float _currentTrackingError;
     private Bounds _bounds;
     private Vector3 _lastPos;
     private Vector3 _paddleVelocity;
@@ -54,6 +58,8 @@ public class AIPaddleController : MonoBehaviour
 
     private void FollowBall()
     {
+        RollTrackingErrorOnNewTurn();
+
         var targetPos = CalculateTargetPosition();
         ApplyMovement(targetPos);
 
@@ -74,7 +80,7 @@ public class AIPaddleController : MonoBehaviour
 
         targetPos.x = CalculateTargetX(ballPos, bounds, isAITurn, bouncedOnMySide, isBallOnAISide, distanceToBall);
         targetPos.x = Mathf.Clamp(targetPos.x, bounds.min.x, bounds.max.x);
-        targetPos.z = Mathf.Clamp(ballPos.z, bounds.min.z, bounds.max.z);
+        targetPos.z = Mathf.Clamp(ballPos.z + _currentTrackingError, bounds.min.z, bounds.max.z);
         targetPos.y = CalculateTargetY(ballPos, bounds, isBallOnAISide);
 
         return targetPos;
@@ -141,6 +147,16 @@ public class AIPaddleController : MonoBehaviour
         _matchController.RegisterHit(_side);
     }
     
+    private void RollTrackingErrorOnNewTurn()
+    {
+        var isAITurn = _matchController.currentTurn == MatchController.Side.AI;
+
+        if (isAITurn && !_wasAITurn)
+            _currentTrackingError = Random.Range(-_trackingError, _trackingError);
+
+        _wasAITurn = isAITurn;
+    }
+
     private void ChooseAttackSpeed()
     {
         _currentAttackSpeed = Random.Range(_minAttackSpeed, _maxAttackSpeed);
@@ -170,7 +186,7 @@ public class AIPaddleController : MonoBehaviour
         if (_matchController.IsServer(_side) && !ballServed)
         {
             var pos = transform.position;
-            pos.x = _bounds.min.x - .4f;
+            pos.x = _bounds.min.x - _serveBackOffset;
             transform.position = pos;
             
             _serveRoutine = StartCoroutine(ServeRoutine());

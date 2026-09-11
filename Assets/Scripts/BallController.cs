@@ -14,7 +14,9 @@ public class BallController : MonoBehaviour
     
     [Header("Movement")]
     [SerializeField] private float _gravity = 3.2f;
-    [SerializeField] private float _maxSpeed = 3f;
+    // Horizontal speed cap. Clamping the full velocity vector made gravity eat
+    // into the forward speed mid-flight, so shots landed shorter than aimed.
+    [SerializeField] private float _maxSpeed = 5f;
     [SerializeField] private float _bounceForce = 0.85f;
     [SerializeField] private float _maxZ = .6f;
     [SerializeField] float _serveY = -0.2f;
@@ -26,9 +28,32 @@ public class BallController : MonoBehaviour
     [SerializeField] private float _minFinalSpeed = 0.8f;
     [SerializeField] private float _maxFinalSpeed = 2f;
     
+    [Header("Shot Assist")]
+    // Paddle speed for a full-power swing. Separate from _maxSpeed, which caps
+    // flight speed: tying the two together changes how hard a swing hits.
+    [SerializeField] private float _swingReferenceSpeed = 3f;
+    // Player: sideways correction only, so how hard you swing still decides
+    // how fast the ball travels.
+    [SerializeField, Range(0f, 1f)] private float _landingAssist = 0.85f;
+    // AI: full correction so it never puts the ball out - losing rallies to its
+    // unforced errors reads as annoying rather than as a win.
+    [SerializeField, Range(0f, 1f)] private float _aiLandingAssist = 1f;
+    [SerializeField] private float _landingMarginX = 0.25f;
+    [SerializeField] private float _landingMarginZ = 0.15f;
+    // Lift for a return played at or below table level, where no arc would
+    // otherwise land on the table.
+    [SerializeField] private float _minAssistLift = 0.6f;
+
     [Header("Impact FX")]
     [SerializeField] private Color _playerHitColor = new Color(0.9f, 0.35f, 0.3f);
     [SerializeField] private Color _aiHitColor = new Color(0.35f, 0.5f, 0.95f);
+    // Player hit shake scales with swing speed rather than with shot power:
+    // power saturates at a paddle speed of 3, so every real swing would shake
+    // the same. The minimum is what a still paddle gets - it has to stay
+    // visible, since it is the only feedback that the block connected.
+    [SerializeField] private float _minHitShake = 0.008f;
+    [SerializeField] private float _maxHitShake = 0.02f;
+    [SerializeField] private float _shakeSwingReference = 12f;
 
     [Header("Readability Aids")]
     [SerializeField] private Color _shadowColor = new Color(0f, 0f, 0f, 0.4f);
@@ -252,10 +277,25 @@ public class BallController : MonoBehaviour
             : new Vector3(_ballServePosOpponent, _opponentPaddle.position.y, _opponentPaddle.position.z);
     }
 
+    /// <summary>Ball position at the start of this frame's movement, for swept hit checks.</summary>
+    public Vector3 PreviousPosition { get; private set; }
+
     private void MoveBall()
     {
         _velocity.y -= _gravity * Time.deltaTime;
-        _velocity = Vector3.ClampMagnitude(_velocity, _maxSpeed);
+
+        // Cap horizontal speed only: clamping the whole vector let gravity steal
+        // forward speed, which made shots drop short of where they were aimed
+        // (and made the landing marker lie).
+        var horizontal = new Vector2(_velocity.x, _velocity.z);
+        if (horizontal.magnitude > _maxSpeed)
+        {
+            horizontal = horizontal.normalized * _maxSpeed;
+            _velocity.x = horizontal.x;
+            _velocity.z = horizontal.y;
+        }
+
+        PreviousPosition = transform.position;
         transform.position += _velocity * Time.deltaTime;
     }
 
@@ -335,18 +375,118 @@ public class BallController : MonoBehaviour
 
         RepositionBallOnHit(paddleTransform);
 
+        var isPlayerHit = CheckCurrentSide() == MatchController.Side.Player;
         var power01 = CalculatePower(paddleVelocity);
         var dynamicMaxZ = CalculateDynamicMaxZ(paddleTransform);
         var zVelocity = CalculateZVelocity(paddleVelocity, power01, dynamicMaxZ);
 
         ApplyHitVelocity(paddleTransform, power01, zVelocity);
 
-        var isPlayerHit = CheckCurrentSide() == MatchController.Side.Player;
+        if (isPlayerHit)
+            AssistPlayerShot();
+        else
+            KeepAIShotInBounds();
         ImpactEffects.Instance.EmitBurst(transform.position, isPlayerHit ? _playerHitColor : _aiHitColor, 10);
         Squash(1.3f, 1.3f);
 
         if (isPlayerHit)
-            ImpactEffects.Instance.Shake(0.015f, 0.28f);
+        {
+            var swing01 = Mathf.Clamp01(paddleVelocity.magnitude / _shakeSwingReference);
+            ImpactEffects.Instance.Shake(Mathf.Lerp(_minHitShake, _maxHitShake, swing01),
+                                         Mathf.Lerp(0.15f, 0.3f, swing01));
+        }
+    }
+
+    /// <summary>
+    /// Time for the ball to fall back to table height. Gravity only affects y,
+    /// so this depends on the vertical velocity alone - which is what lets the
+    /// velocity needed to land on a given spot be solved directly.
+    /// </summary>
+    private float FlightTime(float heightAboveTable)
+    {
+        return (_velocity.y + Mathf.Sqrt(_velocity.y * _velocity.y + 2f * _gravity * heightAboveTable)) / _gravity;
+    }
+
+    private void GetSafeLandingZ(Bounds bounds, out float minZ, out float maxZ)
+    {
+        minZ = bounds.min.z + _landingMarginZ;
+        maxZ = bounds.max.z - _landingMarginZ;
+        if (minZ > maxZ) minZ = maxZ = bounds.center.z;
+    }
+
+    /// <summary>
+    /// Player shots keep the horizontal speed the swing gave them. Only two
+    /// corrections: a shot that would drop on the player's own side gets a
+    /// higher arc so it clears the net, and a shot going wide is pulled back in.
+    /// </summary>
+    private void AssistPlayerShot()
+    {
+        var bounds = _tableCollider.bounds;
+        var height = transform.position.y - bounds.max.y;
+        if (height <= 0.02f) return;
+
+        var flightTime = FlightTime(height);
+        if (flightTime <= 0.01f) return;
+
+        // With a still paddle the shot has almost no power, and from deep in the
+        // player's half it bounced on their own side. Solve for the vertical
+        // speed that stretches the flight past the net instead of speeding the
+        // ball up, so a soft block still reads as a soft block. Shots that
+        // already clear the net are left alone; the tolerance covers the
+        // per-frame integration landing slightly short of the analytic time.
+        const float netTolerance = 0.05f;
+        var landingX = transform.position.x + _velocity.x * flightTime;
+
+        if (landingX > bounds.center.x - netTolerance && _velocity.x < -0.05f)
+        {
+            var netClearX = bounds.center.x - _landingMarginX;
+            flightTime = (netClearX - transform.position.x) / _velocity.x;
+            _velocity.y = _gravity * flightTime * 0.5f - height / flightTime;
+        }
+
+        // At full power the original sideways centering, (1 - power01)^2, is
+        // zero, so an off-centre ball hit with a sideways swing went wide.
+        GetSafeLandingZ(bounds, out var minZ, out var maxZ);
+        var targetZ = Mathf.Clamp(transform.position.z + _velocity.z * flightTime, minZ, maxZ);
+        var neededVz = (targetZ - transform.position.z) / flightTime;
+        _velocity.z = Mathf.Lerp(_velocity.z, neededVz, _landingAssist);
+    }
+
+    /// <summary>Steers an AI shot so it always lands inside the player's half.</summary>
+    private void KeepAIShotInBounds()
+    {
+        if (_aiLandingAssist <= 0f) return;
+
+        const float minHeight = 0.02f;
+        var bounds = _tableCollider.bounds;
+        var height = transform.position.y - bounds.max.y;
+
+        if (height <= minHeight)
+        {
+            // Contact at or below table level leaves no arc that lands on the
+            // table (and a negative height makes the flight time NaN), so the
+            // return gets scooped up instead.
+            height = minHeight;
+            _velocity.y = Mathf.Max(_velocity.y, _minAssistLift);
+        }
+
+        var flightTime = FlightTime(height);
+        if (flightTime <= 0.01f) return;
+
+        var minX = bounds.center.x + _landingMarginX;
+        var maxX = bounds.max.x - _landingMarginX;
+        if (minX > maxX) minX = maxX = bounds.center.x + bounds.extents.x * 0.5f;
+
+        GetSafeLandingZ(bounds, out var minZ, out var maxZ);
+
+        var targetX = Mathf.Clamp(transform.position.x + _velocity.x * flightTime, minX, maxX);
+        var targetZ = Mathf.Clamp(transform.position.z + _velocity.z * flightTime, minZ, maxZ);
+
+        var neededVx = (targetX - transform.position.x) / flightTime;
+        var neededVz = (targetZ - transform.position.z) / flightTime;
+
+        _velocity.x = Mathf.Lerp(_velocity.x, neededVx, _aiLandingAssist);
+        _velocity.z = Mathf.Lerp(_velocity.z, neededVz, _aiLandingAssist);
     }
 
     private void RepositionBallOnHit(Transform paddleTransform)
@@ -363,10 +503,7 @@ public class BallController : MonoBehaviour
 
     private float CalculatePower(Vector3 paddleVelocity)
     {
-        var normalized = Mathf.Clamp01(paddleVelocity.magnitude / _maxSpeed);
-        normalized = Mathf.Sqrt(normalized);
-        var extraPower = Mathf.Lerp(0.05f, 0.4f, normalized);
-        return Mathf.InverseLerp(0.05f, 0.4f, extraPower);
+        return Mathf.Sqrt(Mathf.Clamp01(paddleVelocity.magnitude / _swingReferenceSpeed));
     }
 
     private float CalculateDynamicMaxZ(Transform paddleTransform)

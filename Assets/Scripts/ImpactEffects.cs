@@ -12,7 +12,10 @@ public class ImpactEffects : MonoBehaviour
     private ParticleSystem _particles;
     private ParticleSystemRenderer _renderer;
     private Coroutine _shakeRoutine;
+    private Transform _shakenCamera;
     private Vector3 _camBasePos;
+    private Transform[] _camChildren = new Transform[0];
+    private Vector3[] _camChildBasePos = new Vector3[0];
 
     public static ImpactEffects Instance
     {
@@ -94,7 +97,7 @@ public class ImpactEffects : MonoBehaviour
         if (_shakeRoutine != null)
         {
             StopCoroutine(_shakeRoutine);
-            cam.transform.localPosition = _camBasePos;
+            RestoreShakeBase();
         }
 
         _shakeRoutine = StartCoroutine(ShakeRoutine(cam.transform, intensity, duration));
@@ -102,7 +105,7 @@ public class ImpactEffects : MonoBehaviour
 
     private IEnumerator ShakeRoutine(Transform camTransform, float intensity, float duration)
     {
-        _camBasePos = camTransform.localPosition;
+        CaptureShakeBase(camTransform);
 
         // Smooth Perlin-noise shake with an eased fade-out (per-frame random looks jittery).
         var seedX = Random.value * 100f;
@@ -116,12 +119,54 @@ public class ImpactEffects : MonoBehaviour
             var damper = 1f - Mathf.SmoothStep(0f, 1f, elapsed / duration);
             var x = Mathf.PerlinNoise(seedX, elapsed * frequency) * 2f - 1f;
             var y = Mathf.PerlinNoise(seedY, elapsed * frequency) * 2f - 1f;
-            camTransform.localPosition = _camBasePos + new Vector3(x, y, 0f) * (intensity * damper);
+
+            // Along the camera's own right/up so the shake reads on screen;
+            // world axes would push it along its view direction instead.
+            var worldOffset = (camTransform.right * x + camTransform.up * y) * (intensity * damper);
+            camTransform.position = _camBasePos + worldOffset;
+
+            // Children of the camera (the 2D background) would otherwise ride
+            // along and stay locked on screen while the table shakes in front of
+            // them. Holding them still in the world makes them shake too, a bit
+            // less than the table since they are further away.
+            var localOffset = camTransform.InverseTransformVector(worldOffset);
+            for (var i = 0; i < _camChildren.Length; i++)
+            {
+                if (_camChildren[i] != null)
+                    _camChildren[i].localPosition = _camChildBasePos[i] - localOffset;
+            }
+
             yield return null;
         }
 
-        camTransform.localPosition = _camBasePos;
+        RestoreShakeBase();
         _shakeRoutine = null;
+    }
+
+    private void CaptureShakeBase(Transform camTransform)
+    {
+        _shakenCamera = camTransform;
+        _camBasePos = camTransform.position;
+
+        _camChildren = new Transform[camTransform.childCount];
+        _camChildBasePos = new Vector3[camTransform.childCount];
+        for (var i = 0; i < camTransform.childCount; i++)
+        {
+            _camChildren[i] = camTransform.GetChild(i);
+            _camChildBasePos[i] = _camChildren[i].localPosition;
+        }
+    }
+
+    private void RestoreShakeBase()
+    {
+        if (_shakenCamera == null) return;
+
+        _shakenCamera.position = _camBasePos;
+        for (var i = 0; i < _camChildren.Length; i++)
+        {
+            if (_camChildren[i] != null)
+                _camChildren[i].localPosition = _camChildBasePos[i];
+        }
     }
 
     private void OnDestroy()

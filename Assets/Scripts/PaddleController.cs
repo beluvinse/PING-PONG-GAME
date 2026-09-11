@@ -17,6 +17,9 @@ public class PaddleController : MonoBehaviour
     [SerializeField] private float _yInfluence = 0.2f;
     [SerializeField] private float _maxTilt = 50f;
     [SerializeField] private float _hitDistance = 0.05f;
+    // Added on top of _hitDistance. The scene has the player on 0.03 while the
+    // AI sits on 0.05, so the player had the tighter window of the two.
+    [SerializeField] private float _hitAssist = 0.035f;
     [SerializeField] private float _paddleSpeed; 
     [SerializeField] private float _closeDistanceThreshold = 0.4f;
     [SerializeField] private float _closeFollowSpeed = 15f;
@@ -83,16 +86,33 @@ public class PaddleController : MonoBehaviour
         if (!_matchController.CanHit(_side))
             return;
 
-        var closestPoint = _paddleCollider.ClosestPoint(_ballController.transform.position);
-
-        var distance = Vector3.Distance(closestPoint, _ballController.transform.position);
-       
-        if (distance > _hitDistance)
+        if (!IsBallInReach())
             return;
 
         _ballController.Hit(transform, _paddleVelocity);
 
         _matchController.RegisterHit(_side);
+    }
+
+    private bool IsBallInReach()
+    {
+        var range = _hitDistance + _hitAssist;
+
+        // Sample along the path the ball travelled this frame: a fast ball can
+        // cross the whole hit window between two Updates and slip past a paddle
+        // that visually looks like it was right there.
+        const int samples = 5;
+        var from = _ballController.PreviousPosition;
+        var to = _ballController.transform.position;
+
+        for (var i = 0; i <= samples; i++)
+        {
+            var point = Vector3.Lerp(from, to, i / (float)samples);
+            if (Vector3.Distance(_paddleCollider.ClosestPoint(point), point) <= range)
+                return true;
+        }
+
+        return false;
     }
     
     private void SetupMovementArea(bool ballServed)

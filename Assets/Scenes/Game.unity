@@ -591,6 +591,7 @@ MonoBehaviour:
   _yInfluence: 0.3
   _maxTilt: 50
   _hitDistance: 0.03
+  _hitAssist: 0.035
   _paddleSpeed: 15
   _closeDistanceThreshold: 0.5
   _closeFollowSpeed: 15
@@ -2707,8 +2708,8 @@ MonoBehaviour:
       m_Calls: []
   m_text: PING PONG
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: abddc974dd90b9944917d7361d1be2fd, type: 2}
-  m_sharedMaterial: {fileID: 8838084004473770885, guid: abddc974dd90b9944917d7361d1be2fd, type: 2}
+  m_fontAsset: {fileID: 11400000, guid: 6c49f4efa73fd9c41baee3e4fb454554, type: 2}
+  m_sharedMaterial: {fileID: 4442031784381953520, guid: 6c49f4efa73fd9c41baee3e4fb454554, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
@@ -2732,8 +2733,8 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 150
-  m_fontSizeBase: 150
+  m_fontSize: 180
+  m_fontSizeBase: 180
   m_fontWeight: 400
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
@@ -5049,7 +5050,7 @@ MonoBehaviour:
   _paddleVisual: {fileID: 1241783912}
   _movementArea: {fileID: 1377060322}
   _paddleCollider: {fileID: 7932623710231041569}
-  _hitDistance: 0.05
+  _hitDistance: 0.03
   _maxTilt: 50
   _xMoveSpeed: 7.5
   _zMoveSpeed: 6.5
@@ -5061,6 +5062,8 @@ MonoBehaviour:
   _prepareOffset: 0.8
   _attackThreshold: 0.2
   _yTrackingBias: 0.35
+  _trackingError: 0.09
+  _serveBackOffset: 0
 --- !u!65 &7932623710231041569
 BoxCollider:
   m_ObjectHideFlags: 0
