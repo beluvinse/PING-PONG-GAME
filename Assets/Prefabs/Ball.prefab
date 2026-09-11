@@ -210,7 +210,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 10303, guid: 0000000000000000f000000000000000, type: 0}
+  - {fileID: 2100000, guid: 50784aa70a04816418218a7f09901b28, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -245,15 +245,15 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   _matchController: {fileID: 0}
-  playerPaddle: {fileID: 0}
-  opponentPaddle: {fileID: 0}
-  tableCollider: {fileID: 0}
+  _playerPaddle: {fileID: 0}
+  _opponentPaddle: {fileID: 0}
+  _tableCollider: {fileID: 0}
   _trail: {fileID: 2812548143457332165}
   _renderer: {fileID: 337544698041223145}
-  gravity: 3.2
-  maxSpeed: 3
-  bounceForce: 0.85
-  maxZ: 0.8
+  _gravity: 3.2
+  _maxSpeed: 5
+  _bounceForce: 0.85
+  _maxZ: 0.6
   _serveY: -0.6
   _serveSpeed: 2
   _hitOffsetX: 0.2
@@ -262,6 +262,22 @@ MonoBehaviour:
   _assistBlend: 0.9
   _minFinalSpeed: 0.8
   _maxFinalSpeed: 2
+  _swingReferenceSpeed: 3
+  _landingAssist: 0.85
+  _aiLandingAssist: 1
+  _landingMarginX: 0.25
+  _landingMarginZ: 0.15
+  _minAssistLift: 0.6
+  _playerHitColor: {r: 0.9, g: 0.35, b: 0.3, a: 1}
+  _aiHitColor: {r: 0.35, g: 0.5, b: 0.95, a: 1}
+  _minHitShake: 0.008
+  _maxHitShake: 0.02
+  _shakeSwingReference: 12
+  _shadowColor: {r: 0, g: 0, b: 0, a: 0.4}
+  _landingMarkerColor: {r: 1, g: 0.5, b: 0.35, a: 0.75}
+  _landingAlignedColor: {r: 0.35, g: 0.9, b: 0.45, a: 0.85}
+  _shadowMaxHeight: 0.8
+  _alignThresholdZ: 0.18
 --- !u!135 &6902005455477080651
 SphereCollider:
   m_ObjectHideFlags: 0
