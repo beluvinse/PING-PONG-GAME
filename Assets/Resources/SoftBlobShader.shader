@@ -9,6 +9,10 @@ Shader "Custom/SoftBlob"
         _Color ("Color", Color) = (0, 0, 0, 0.35)
         _InnerRadius ("Inner Radius (0 = solid blob)", Range(0, 0.95)) = 0
         _Softness ("Edge Softness", Range(0.01, 0.5)) = 0.18
+        // World-space XZ rectangle the blob may draw in (the table top).
+        // Defaults are huge so an unset material draws everywhere.
+        _ClipMin ("Clip Min (world XZ)", Vector) = (-100000, 0, -100000, 0)
+        _ClipMax ("Clip Max (world XZ)", Vector) = (100000, 0, 100000, 0)
     }
 
     SubShader
@@ -30,6 +34,8 @@ Shader "Custom/SoftBlob"
             fixed4 _Color;
             float _InnerRadius;
             float _Softness;
+            float4 _ClipMin;
+            float4 _ClipMax;
 
             struct appdata
             {
@@ -41,6 +47,7 @@ Shader "Custom/SoftBlob"
             {
                 float4 pos : SV_POSITION;
                 float2 uv : TEXCOORD0;
+                float3 worldPos : TEXCOORD1;
             };
 
             v2f vert(appdata v)
@@ -48,6 +55,7 @@ Shader "Custom/SoftBlob"
                 v2f o;
                 o.pos = UnityObjectToClipPos(v.vertex);
                 o.uv = v.uv;
+                o.worldPos = mul(unity_ObjectToWorld, v.vertex).xyz;
                 return o;
             }
 
@@ -61,7 +69,13 @@ Shader "Custom/SoftBlob"
                     ? smoothstep(_InnerRadius - _Softness, _InnerRadius, d)
                     : 1.0;
 
-                return fixed4(_Color.rgb, _Color.a * outerMask * innerMask);
+                // Nothing outside the table top, so a blob sliding off the edge
+                // is cut there instead of floating in the air.
+                float2 p = i.worldPos.xz;
+                float onTable = step(_ClipMin.x, p.x) * step(p.x, _ClipMax.x)
+                              * step(_ClipMin.z, p.y) * step(p.y, _ClipMax.z);
+
+                return fixed4(_Color.rgb, _Color.a * outerMask * innerMask * onTable);
             }
             ENDCG
         }

@@ -73,6 +73,8 @@ public class BallController : MonoBehaviour
     private Transform _paddleShadow;
     private Material _shadowMaterial;
     private Material _landingMaterial;
+    private Material _paddleShadowMaterial;
+    private static readonly Color PaddleShadowColor = new Color(0f, 0f, 0f, 0.28f);
 
     private void Awake()
     {
@@ -99,8 +101,21 @@ public class BallController : MonoBehaviour
 
         _shadowBlob = CreateIndicatorQuad("BallShadow", blobShader, _shadowColor, 0f, out _shadowMaterial);
         _landingMarker = CreateIndicatorQuad("LandingMarker", blobShader, _landingMarkerColor, 0.62f, out _landingMaterial);
-        _paddleShadow = CreateIndicatorQuad("PaddleShadow", blobShader, new Color(0f, 0f, 0f, 0.28f), 0f, out _);
+        _paddleShadow = CreateIndicatorQuad("PaddleShadow", blobShader, PaddleShadowColor, 0f, out _paddleShadowMaterial);
+
+        // The shader only draws inside this rectangle, so the blobs stay on the
+        // table top. Inset past the rounded edge, where the surface drops away
+        // from the flat quad.
+        var bounds = _tableCollider.bounds;
+        var inset = new Vector3(TABLE_EDGE_INSET, 0f, TABLE_EDGE_INSET);
+        foreach (var material in new[] { _shadowMaterial, _landingMaterial, _paddleShadowMaterial })
+        {
+            material.SetVector("_ClipMin", bounds.min + inset);
+            material.SetVector("_ClipMax", bounds.max - inset);
+        }
     }
+
+    private const float TABLE_EDGE_INSET = 0.02f;
 
     private static Transform CreateIndicatorQuad(string name, Shader shader, Color color, float innerRadius, out Material material)
     {
@@ -135,15 +150,13 @@ public class BallController : MonoBehaviour
 
         // Fixed-height shadow under the player paddle so its depth (z) can be
         // compared against the ball shadow and the landing ring.
-        var bounds = _tableCollider.bounds;
-        var show = _playerPaddle.gameObject.activeInHierarchy
-                   && _playerPaddle.position.z > bounds.min.z - 0.3f
-                   && _playerPaddle.position.z < bounds.max.z + 0.3f;
-
+        // The shader clips it to the table top, so it just follows the paddle.
+        var show = _playerPaddle.gameObject.activeInHierarchy;
         _paddleShadow.gameObject.SetActive(show);
         if (!show) return;
 
-        _paddleShadow.position = new Vector3(_playerPaddle.position.x, bounds.max.y + 0.002f, _playerPaddle.position.z);
+        var pos = _playerPaddle.position;
+        _paddleShadow.position = new Vector3(pos.x, _tableCollider.bounds.max.y + 0.002f, pos.z);
         var size = _ballDiameter * 3.2f;
         _paddleShadow.localScale = new Vector3(size, size, 1f);
     }
