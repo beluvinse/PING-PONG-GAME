@@ -65,8 +65,14 @@ public class ImpactEffects : MonoBehaviour
         sizeOverLifetime.size = new ParticleSystem.MinMaxCurve(1f, AnimationCurve.Linear(0f, 1f, 1f, 0f));
 
         _renderer = GetComponent<ParticleSystemRenderer>();
-        _renderer.material = new Material(FindParticleShader());
+
+        // An authored material (created by the URP migration) wins; the shader
+        // lookup below only covers the built-in pipeline.
+        var authored = Resources.Load<Material>(PARTICLE_MATERIAL);
+        _renderer.material = authored != null ? authored : new Material(FindParticleShader());
     }
+
+    private const string PARTICLE_MATERIAL = "ImpactParticle";
 
     private static Shader FindParticleShader()
     {

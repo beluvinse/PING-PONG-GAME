@@ -79,10 +79,10 @@ public class PaletteSkin : MonoBehaviour
         {
             foreach (var material in renderer.materials)
             {
-                // Reading mainTexture on a shader without _MainTex logs an error,
-                // so check the property exists first (the indicator quads use a
-                // texture-less shader).
-                if (material == null || !material.HasProperty("_MainTex")) continue;
+                // Reading mainTexture on a shader without a main texture logs an
+                // error, so check first (the indicator quads use a texture-less
+                // shader). URP shaders name it _BaseMap, built-in ones _MainTex.
+                if (material == null || !(material.HasProperty("_BaseMap") || material.HasProperty("_MainTex"))) continue;
                 if (material.mainTexture == null || material.mainTexture.name != ATLAS_NAME) continue;
 
                 material.mainTexture = atlas;
