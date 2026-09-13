@@ -13,7 +13,7 @@ public class ServingState : BaseMatchState
         Match.ballBounced = false;
         Match.ballServed = false;
         Match.bounceCount = 0;
-        Match.StartServeDelay(3f, () => Match.OnBallServed?.Invoke(false));
+        Match.StartServeDelay(Match.NextServeDelay(), () => Match.OnBallServed?.Invoke(false));
     }
 
     public override void OnBounce(MatchController.Side side)

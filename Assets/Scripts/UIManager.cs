@@ -59,7 +59,9 @@ public class UIManager : MonoBehaviour
         SetUpListeners();
         BuildPauseMenu();
 
-        _matchEndedPanel.SetActive(false);
+        // Auto-start serves on its own, so the Play/Quit panel would only be in
+        // the way; without it, that panel is the only way into a match.
+        _matchEndedPanel.SetActive(!_matchController.AutoStart);
         _scoresSidePanel.SetActive(false);
         _pausePanel.SetActive(false);
         _gameText.gameObject.SetActive(false);

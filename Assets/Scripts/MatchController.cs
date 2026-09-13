@@ -29,9 +29,41 @@ public class MatchController : MonoBehaviour
     public Action OnMatchPoint;
 
     public bool IsRallyActive => _currentState is RallyState;
-    
+
+    [Header("Start")]
+    [Tooltip("Serves as soon as the scene loads, instead of waiting for the Play button.")]
+    [SerializeField] private bool _autoStart = true;
+    [Tooltip("Optional. The first serve waits for this countdown, so 'GO!' and the ball land together.")]
+    [SerializeField] private StartCountdown _startCountdown;
+    [Tooltip("Pause between a serve being announced and the ball being placed.")]
+    [SerializeField] private float _serveDelay = 3f;
+
+    /// <summary>False leaves the old Play/Quit panel up instead of serving.</summary>
+    public bool AutoStart => _autoStart;
+
     private BaseMatchState _currentState;
-    
+    private bool _countdownPending;
+
+    private void Start()
+    {
+        if (!_autoStart) return;
+
+        _countdownPending = _startCountdown != null;
+        RestartGame();
+    }
+
+    /// <summary>
+    /// Pause before the ball is placed. The very first serve of an auto-started
+    /// match stretches to cover the countdown; every serve after it is normal.
+    /// </summary>
+    public float NextServeDelay()
+    {
+        if (!_countdownPending) return _serveDelay;
+
+        _countdownPending = false;
+        return Mathf.Max(_serveDelay, _startCountdown.TotalDuration);
+    }
+
     public void RestartGame()
     {
         server = Side.Player;
