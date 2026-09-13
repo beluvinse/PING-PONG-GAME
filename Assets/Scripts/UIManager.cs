@@ -10,12 +10,10 @@ public class UIManager : MonoBehaviour
 
     [SerializeField] private GameObject _matchEndedPanel;
     [SerializeField] private GameObject _pausePanel;
-    [SerializeField] private GameObject _scoresSidePanel;
     [SerializeField] private Image _scorerPanel;
     [SerializeField] private Color _redColor;
     [SerializeField] private Color _blueColor;
-    [SerializeField] private Animator _scoresAnimator;
-    [SerializeField] private Animator _matchAnimator;
+    [SerializeField] private UIPanelAnimations _panelAnimations;
 
     [Header("Score UI")]
     [SerializeField] private TextMeshProUGUI[] _playerScoreText;
@@ -42,10 +40,6 @@ public class UIManager : MonoBehaviour
     private const string RESUME_LABEL = "Resume";
     private const string MAIN_MENU_LABEL = "Main menu";
 
-    private const string SCORES_ANIMATOR_SHOWMAINPANEL = "showMainPanel";
-    private const string SCORES_ANIMATOR_MATCHOVER = "matchOver";
-    private const string MATCH_SHOWSERVER = "show";
-
     private const string GAME_FIRSTTO5 = "FIRST TO 5";
     private const string GAME_MATCHPOINT = "MATCH POINT";
     private const string GAME_TIEBREAK = "TIE BREAK";
@@ -62,7 +56,6 @@ public class UIManager : MonoBehaviour
         // Auto-start serves on its own, so the Play/Quit panel would only be in
         // the way; without it, that panel is the only way into a match.
         _matchEndedPanel.SetActive(!_matchController.AutoStart);
-        _scoresSidePanel.SetActive(false);
         _pausePanel.SetActive(false);
         _gameText.gameObject.SetActive(false);
         _matchOverText.gameObject.SetActive(false);
@@ -157,11 +150,13 @@ public class UIManager : MonoBehaviour
         foreach (var t in _aiScoreText)
             t.text = "0";
 
-        _scoresAnimator.SetBool(SCORES_ANIMATOR_SHOWMAINPANEL, false);
-        _scoresSidePanel.SetActive(false);
+        _panelAnimations.ShowSidePanel();
 
         _matchController.StopMatch();
-        _matchEndedPanel.SetActive(true);
+
+        // StartRally parked the end screen off-screen, so it has to be put back
+        // in place rather than just switched on.
+        _panelAnimations.ShowGameEndedImmediate();
     }
 
     private void OnRematchClicked()
@@ -171,8 +166,9 @@ public class UIManager : MonoBehaviour
             t.text = "0";
         foreach (var t in _aiScoreText)
             t.text = "0";
+        // RestartGame reaches OnRallyStarted, and StartRally slides the end
+        // screen away and switches it off once it is gone.
         _matchController.RestartGame();
-        _matchEndedPanel.SetActive(false);
         _firstTo5Text.gameObject.SetActive(true);
     }
     
@@ -191,7 +187,7 @@ public class UIManager : MonoBehaviour
     private void OnMatchOver(MatchController.Side winner)
     {
         _matchOverText.text = winner == MatchController.Side.Player ? VICTORY_TEXT : DEFEAT_TEXT;
-        _scoresAnimator.SetTrigger(SCORES_ANIMATOR_MATCHOVER);
+        _panelAnimations.MatchOver();
         StartCoroutine(TextPop(_matchOverText));
     }
 
@@ -203,8 +199,14 @@ public class UIManager : MonoBehaviour
             _firstRally = false;
         }
 
-        _scoresAnimator.SetBool(SCORES_ANIMATOR_SHOWMAINPANEL, true);
-        _matchAnimator.SetTrigger(MATCH_SHOWSERVER);
+        // The controller had two ways into the score panel: StartRally, which
+        // also clears the end screen, and ShowMainPanel when it was not up.
+        if (_matchEndedPanel.activeSelf)
+            _panelAnimations.StartRally();
+        else
+            _panelAnimations.ShowMainPanel();
+
+        _panelAnimations.ShowServerInfo();
     }
 
     private void OnPointWon(MatchController.Side scorerSide)
@@ -229,7 +231,7 @@ public class UIManager : MonoBehaviour
     private void OnBallServed(bool ballServed)
     {
         if (!ballServed) return;
-        _scoresAnimator.SetBool(SCORES_ANIMATOR_SHOWMAINPANEL, false);
+        _panelAnimations.ShowSidePanel();
         _scorerText.text = "";
         _scorerText.maxVisibleCharacters = int.MaxValue;
     }
