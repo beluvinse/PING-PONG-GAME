@@ -593,6 +593,7 @@ MonoBehaviour:
   _hitDistance: 0.03
   _hitAssist: 0.035
   _paddleSpeed: 15
+  _catchUp: 8
   _closeDistanceThreshold: 0.5
   _closeFollowSpeed: 15
   _inactiveAlpha: 0.4
