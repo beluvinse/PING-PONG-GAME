@@ -150,8 +150,6 @@ public class UIManager : MonoBehaviour
         foreach (var t in _aiScoreText)
             t.text = "0";
 
-        _panelAnimations.ShowSidePanel();
-
         _matchController.StopMatch();
 
         // StartRally parked the end screen off-screen, so it has to be put back
@@ -199,12 +197,10 @@ public class UIManager : MonoBehaviour
             _firstRally = false;
         }
 
-        // The controller had two ways into the score panel: StartRally, which
-        // also clears the end screen, and ShowMainPanel when it was not up.
+        // StartRally is what clears the end screen, so it only runs when that
+        // screen is actually up.
         if (_matchEndedPanel.activeSelf)
             _panelAnimations.StartRally();
-        else
-            _panelAnimations.ShowMainPanel();
 
         _panelAnimations.ShowServerInfo();
     }
@@ -231,7 +227,6 @@ public class UIManager : MonoBehaviour
     private void OnBallServed(bool ballServed)
     {
         if (!ballServed) return;
-        _panelAnimations.ShowSidePanel();
         _scorerText.text = "";
         _scorerText.maxVisibleCharacters = int.MaxValue;
     }
