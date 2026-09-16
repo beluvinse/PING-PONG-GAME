@@ -46,7 +46,14 @@ public class OptionsMenu : MonoBehaviour
         ReadFromOptions();
     }
 
-    private void Close() => _screen.SetActive(false);
+    /// <summary>Raised after Back or Apply closes the screen. MenuNavigator listens.</summary>
+    public event System.Action Closed;
+
+    private void Close()
+    {
+        _screen.SetActive(false);
+        Closed?.Invoke();
+    }
     
     private void HookUp()
     {
