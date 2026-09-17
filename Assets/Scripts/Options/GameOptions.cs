@@ -19,6 +19,8 @@ public static class GameOptions
     private const string KEY_MUTE = "options.mute";
     private const string KEY_SKIN = "options.skin";
     private const string KEY_EXPRESSION = "options.expression";
+    private const string KEY_SKIN_SPRITE = "options.skinSprite";
+    private const string KEY_EXPRESSION_SPRITE = "options.expressionSprite";
 
     /// <summary>Raised on every change, saved or not. Hook audio and avatars here.</summary>
     public static event Action Changed;
@@ -29,6 +31,8 @@ public static class GameOptions
     private static bool _mute;
     private static int _skin;
     private static int _expression;
+    private static string _skinSprite = "";
+    private static string _expressionSprite = "";
 
     public static float MasterVolume
     {
@@ -66,6 +70,24 @@ public static class GameOptions
         set => Apply(ref _expression, Mathf.Max(0, value));
     }
 
+    /// <summary>
+    /// Name of the chosen skin sprite. Unlike the index it still points at the
+    /// right art after the swatches are reordered, and scenes without the
+    /// options screen can look it up.
+    /// </summary>
+    public static string SkinSprite
+    {
+        get => _skinSprite;
+        set => Apply(ref _skinSprite, value ?? "");
+    }
+
+    /// <summary>Name of the chosen expression sprite. See <see cref="SkinSprite"/>.</summary>
+    public static string ExpressionSprite
+    {
+        get => _expressionSprite;
+        set => Apply(ref _expressionSprite, value ?? "");
+    }
+
     /// <summary>What an AudioSource should actually play at, mute included.</summary>
     public static float EffectiveMusic => _mute ? 0f : _music * _master;
 
@@ -81,6 +103,8 @@ public static class GameOptions
         _mute = PlayerPrefs.GetInt(KEY_MUTE, 0) == 1;
         _skin = PlayerPrefs.GetInt(KEY_SKIN, 0);
         _expression = PlayerPrefs.GetInt(KEY_EXPRESSION, 0);
+        _skinSprite = PlayerPrefs.GetString(KEY_SKIN_SPRITE, "");
+        _expressionSprite = PlayerPrefs.GetString(KEY_EXPRESSION_SPRITE, "");
 
         ApplyAudio();
         Changed?.Invoke();
@@ -94,6 +118,8 @@ public static class GameOptions
         PlayerPrefs.SetInt(KEY_MUTE, _mute ? 1 : 0);
         PlayerPrefs.SetInt(KEY_SKIN, _skin);
         PlayerPrefs.SetInt(KEY_EXPRESSION, _expression);
+        PlayerPrefs.SetString(KEY_SKIN_SPRITE, _skinSprite);
+        PlayerPrefs.SetString(KEY_EXPRESSION_SPRITE, _expressionSprite);
         PlayerPrefs.Save();
     }
 

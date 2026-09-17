@@ -28,6 +28,12 @@ public class MatchController : MonoBehaviour
     public Action OnTieBreak;
     public Action OnMatchPoint;
 
+    /// <summary>Raised when a match begins: auto-start, rematch or replay from the end screen.</summary>
+    public Action OnMatchStarted;
+
+    /// <summary>How many matches have begun in this scene. Lets late listeners tell they missed one.</summary>
+    public int MatchesStarted { get; private set; }
+
     public bool IsRallyActive => _currentState is RallyState;
 
     [Header("Start")]
@@ -70,6 +76,12 @@ public class MatchController : MonoBehaviour
         playerScore = 0;
         aiScore = 0;
         servesDone = 0;
+
+        // Before the serve state, so anything set up for the new match (the
+        // opponent's avatar) is in place when the serve is announced.
+        MatchesStarted++;
+        OnMatchStarted?.Invoke();
+
         TransitionTo(new ServingState(this));
     }
 

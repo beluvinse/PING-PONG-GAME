@@ -76,8 +76,18 @@ public class OptionsMenu : MonoBehaviour
         if (_musicSlider != null) _musicSlider.SetValueWithoutNotify(GameOptions.MusicVolume);
         if (_sfxSlider != null) _sfxSlider.SetValueWithoutNotify(GameOptions.SfxVolume);
         
-        if (_skinGroup != null) _skinGroup.Select(GameOptions.SkinIndex, notify: false);
-        if (_expressionGroup != null) _expressionGroup.Select(GameOptions.ExpressionIndex, notify: false);
+        if (_skinGroup != null)
+        {
+            _skinGroup.Select(SavedIndex(_skinGroup, GameOptions.SkinSprite, GameOptions.SkinIndex), notify: false);
+            // Saves from before sprite names were stored get one filled in here.
+            if (GameOptions.SkinSprite == "") GameOptions.SkinSprite = SpriteName(SwatchSprite(_skinGroup, _skinGroup.Selected));
+        }
+
+        if (_expressionGroup != null)
+        {
+            _expressionGroup.Select(SavedIndex(_expressionGroup, GameOptions.ExpressionSprite, GameOptions.ExpressionIndex), notify: false);
+            if (GameOptions.ExpressionSprite == "") GameOptions.ExpressionSprite = SpriteName(SwatchSprite(_expressionGroup, _expressionGroup.Selected));
+        }
 
         RefreshPreview();
     }
@@ -85,6 +95,7 @@ public class OptionsMenu : MonoBehaviour
     private void OnSkinPicked(int index)
     {
         GameOptions.SkinIndex = index;
+        GameOptions.SkinSprite = SpriteName(SwatchSprite(_skinGroup, index));
         GameOptions.Save();
         RefreshPreview();
     }
@@ -92,6 +103,7 @@ public class OptionsMenu : MonoBehaviour
     private void OnExpressionPicked(int index)
     {
         GameOptions.ExpressionIndex = index;
+        GameOptions.ExpressionSprite = SpriteName(SwatchSprite(_expressionGroup, index));
         GameOptions.Save();
         RefreshPreview();
     }
@@ -117,6 +129,24 @@ public class OptionsMenu : MonoBehaviour
     {
         var fill = group != null ? group.FillAt(index) : null;
         return fill.sprite;
+    }
+
+    private static string SpriteName(Sprite sprite) => sprite != null ? sprite.name : "";
+
+    /// <summary>
+    /// Where the saved choice sits now: found by sprite name, so reordering the
+    /// swatches keeps it selected; the saved index covers older saves.
+    /// </summary>
+    private static int SavedIndex(OptionSwatchGroup group, string spriteName, int savedIndex)
+    {
+        if (!string.IsNullOrEmpty(spriteName))
+            for (var i = 0; i < group.Count; i++)
+            {
+                var sprite = SwatchSprite(group, i);
+                if (sprite != null && sprite.name == spriteName) return i;
+            }
+
+        return savedIndex;
     }
 
     private void OnDestroy()
