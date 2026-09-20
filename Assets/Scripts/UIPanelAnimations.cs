@@ -39,7 +39,8 @@ public class UIPanelAnimations : MonoBehaviour
 
     private Sequence _serverSequence;
     private CanvasGroup _serverGroup;
-    private float _scoresRestY, _firstTo5RestY;
+    private float _scoresRestY, _firstTo5RestY, _serverRestY;
+    private bool _signsShown;
 
     private void Awake()
     {
@@ -48,6 +49,7 @@ public class UIPanelAnimations : MonoBehaviour
         // which stayed behind when a panel moved and pushed it off the top.
         if (_scoresMainPanel != null) _scoresRestY = _scoresMainPanel.anchoredPosition.y;
         if (_firstTo5Panel != null) _firstTo5RestY = _firstTo5Panel.anchoredPosition.y;
+        if (_serverInfo != null) _serverRestY = _serverInfo.anchoredPosition.y;
 
         // The border is on the panel itself, so the panel is what fades: fading only
         // the contents left the border sitting there.
@@ -81,13 +83,50 @@ public class UIPanelAnimations : MonoBehaviour
     /// </summary>
     public void ParkMatchSigns()
     {
+        _signsShown = false;
         Park(_scoresMainPanel, _scoresRestY);
         Park(_firstTo5Panel, _firstTo5RestY);
+    }
+
+    /// <summary>
+    /// Clears the court for the pause menu and brings it all back afterwards. Each
+    /// piece leaves by the edge it is nearest: the signs ride up the way they came
+    /// in, and the server panel, which sits low, drops out of the bottom.
+    /// </summary>
+    public void ShowHud(bool shown)
+    {
+        SlideServerInfo(shown);
+
+        if (!shown)
+        {
+            // Not HideMatchSigns: a pause is not the match ending, so whether the
+            // signs were on screen has to survive it.
+            Raise(_scoresMainPanel, _scoresRestY, 0f);
+            Raise(_firstTo5Panel, _firstTo5RestY, 0f);
+            return;
+        }
+
+        // Pausing during the countdown must not let them in early.
+        if (!_signsShown) return;
+
+        Drop(_scoresMainPanel, _scoresRestY);
+        Drop(_firstTo5Panel, _firstTo5RestY);
+    }
+
+    private void SlideServerInfo(bool shown)
+    {
+        if (_serverInfo == null) return;
+
+        _serverInfo.DOKill();                                // the fade lives on the CanvasGroup, untouched
+        _serverInfo.DOAnchorPosY(shown ? _serverRestY : _serverRestY - _signHiddenOffset, _startRallyDuration)
+            .SetEase(shown ? _dropEase : _raiseEase)
+            .SetUpdate(true);                                // pausing freezes time: this still has to move
     }
 
     /// <summary>Drops both signs from above into the place the scene gives them.</summary>
     public void ShowMatchSigns()
     {
+        _signsShown = true;
         Drop(_scoresMainPanel, _scoresRestY);
         Drop(_firstTo5Panel, _firstTo5RestY);
     }
@@ -98,6 +137,7 @@ public class UIPanelAnimations : MonoBehaviour
     /// </summary>
     public void HideMatchSigns(float delay = 0f)
     {
+        _signsShown = false;
         Raise(_scoresMainPanel, _scoresRestY, delay);
         Raise(_firstTo5Panel, _firstTo5RestY, delay);
     }

@@ -20,10 +20,13 @@ public class UIManager : MonoBehaviour
     [SerializeField] private TextMeshProUGUI _serverText;
     [SerializeField] private TextMeshProUGUI _firstTo5Text;
 
-    [Header("Buttons")] 
-    [SerializeField] private Button _rematchButton;
-    [SerializeField] private Button _quitButton;
-    [SerializeField] private Button _quitButtonPause;
+    [Header("Pause Menu")] 
+    [SerializeField] private Button _resumeButton;
+    [SerializeField] private Button _restartButton;
+    [SerializeField] private Button _settingsButton;
+    [SerializeField] private Button _pauseMenuButton;
+    [Tooltip("Options screen inside this scene. Empty = the Settings button does nothing.")]
+    [SerializeField] private GameObject _settingsScreen;
 
     [Header("Point Feedback")]
     [Tooltip("Seconds the old number stays on screen before it leaves.")]
@@ -100,9 +103,6 @@ public class UIManager : MonoBehaviour
 
     private const string PLAYER_SERVES_TEXT = "Your serve";
     private const string OPPONENT_SERVES_TEXT = "Opponent to serve";
-    private const string RESUME_LABEL = "Resume";
-    private const string MAIN_MENU_LABEL = "Main menu";
-
     private const string GAME_FIRSTTO5 = "FIRST TO 5";
     private const string GAME_MATCHPOINT = "MATCH POINT";
     private const string GAME_DEUCE = "DEUCE";
@@ -110,7 +110,6 @@ public class UIManager : MonoBehaviour
     // Once both players reach this, winning needs a two-point lead.
     private const int DEUCE_SCORE = 4;
 
-    private Button _resumeButton;
     private Camera _pointSparklesCamera;
     private Sequence _scoreTween;
     private Vector2 _playerScoreRest, _aiScoreRest;
@@ -126,7 +125,6 @@ public class UIManager : MonoBehaviour
     private void Awake()
     {
         SetUpListeners();
-        BuildPauseMenu();
 
         // Auto-start serves on its own, so the Play/Quit panel would only be in
         // the way; without it, that panel is the only way into a match.
@@ -171,75 +169,93 @@ public class UIManager : MonoBehaviour
         _matchController.OnMatchStarted += OnMatchStarted;
         if (_matchController.Countdown != null) _matchController.Countdown.Finished += OnCountdownFinished;
 
-        _rematchButton.onClick.AddListener(OnRematchClicked);
-        _quitButton.onClick.AddListener(OnQuitClicked);
-        _quitButtonPause.onClick.AddListener(OnMainMenuClicked);
+        if (_resumeButton != null) _resumeButton.onClick.AddListener(OnResumeClicked);
+        if (_restartButton != null) _restartButton.onClick.AddListener(OnRestartClicked);
+        if (_settingsButton != null) _settingsButton.onClick.AddListener(OnSettingsClicked);
+        if (_pauseMenuButton != null) _pauseMenuButton.onClick.AddListener(LoadMenuScene);
 
         if (_matchEndRematchButton != null) _matchEndRematchButton.onClick.AddListener(OnMatchEndRematchClicked);
         if (_matchEndMenuButton != null) _matchEndMenuButton.onClick.AddListener(OnMatchEndMenuClicked);
     }
 
-    private void BuildPauseMenu()
+    private void TogglePause()
     {
-        // The pause panel originally only had a quit-to-desktop button.
-        // Repurpose it as "Main menu" and clone it to add a "Resume" button above.
-        SetButtonLabel(_quitButtonPause, MAIN_MENU_LABEL);
-
-        _resumeButton = Instantiate(_quitButtonPause, _quitButtonPause.transform.parent);
-        _resumeButton.name = "ResumeButton";
-        SetButtonLabel(_resumeButton, RESUME_LABEL);
-        _resumeButton.onClick.AddListener(TogglePause);
-
-        var quitRect = _quitButtonPause.GetComponent<RectTransform>();
-        var resumeRect = _resumeButton.GetComponent<RectTransform>();
-        resumeRect.anchoredPosition = quitRect.anchoredPosition + Vector2.up * (quitRect.rect.height + 14f);
-    }
-
-    private static void SetButtonLabel(Button button, string label)
-    {
-        var tmpLabel = button.GetComponentInChildren<TMP_Text>(true);
-        if (tmpLabel != null)
+        // Closing is always allowed; it is opening that has conditions.
+        if (_pausePanel.activeSelf)
         {
-            tmpLabel.text = label;
+            SetPaused(false);
             return;
         }
 
-        var legacyLabel = button.GetComponentInChildren<Text>(true);
-        if (legacyLabel != null)
-            legacyLabel.text = label;
+        if (CanPause) SetPaused(true);
     }
 
-    private void TogglePause()
+    /// <summary>
+    /// Only while a match is actually being played. Pausing over the countdown or
+    /// after the last point would freeze the game behind a screen whose Resume
+    /// goes back to something that is no longer there.
+    /// </summary>
+    private bool CanPause
     {
-        if (_matchEndScreen != null && _matchEndScreen.activeSelf) return;
+        get
+        {
+            if (SceneTransition.IsBusy) return false;            // the wipe is still on screen
+            if (_matchController.IsMatchOver()) return false;    // decided, even before the end screen is up
+            if (_matchEndScreen != null && _matchEndScreen.activeSelf) return false;
+            if (_settingsScreen != null && _settingsScreen.activeSelf) return false;   // Back is what closes it
 
-        _pausePanel.SetActive(!_pausePanel.activeSelf);
-        Time.timeScale = _pausePanel.activeSelf ? 0 : 1;
+            var countdown = _matchController.Countdown;
+            return countdown == null || !countdown.IsRunning;
+        }
     }
 
-    private void OnQuitClicked()
+    /// <summary>
+    /// Pausing freezes the match and sends the HUD off the top of the screen, so
+    /// the menu is read against the court instead of over the scores.
+    /// </summary>
+    private void SetPaused(bool paused)
     {
-#if UNITY_EDITOR
-        UnityEditor.EditorApplication.isPlaying = false;
-#else
-            Application.Quit();
-#endif
+        _pausePanel.SetActive(paused);
+        Time.timeScale = paused ? 0f : 1f;
+        _panelAnimations.ShowHud(!paused);
     }
 
-    private void OnMainMenuClicked()
+    private void OnResumeClicked() => SetPaused(false);
+
+    /// <summary>Restart: away with the menu, and the match begins again at 0-0.</summary>
+    private void OnRestartClicked()
+    {
+        SetPaused(false);
+        _matchController.RestartGame();      // OnMatchStarted clears the scores and parks the signs
+    }
+
+    /// <summary>
+    /// Settings takes the pause menu's place rather than covering it, and time
+    /// stays frozen underneath. Whatever closes the options screen calls
+    /// <see cref="CloseSettings"/> to come back.
+    /// </summary>
+    private void OnSettingsClicked()
+    {
+        if (_settingsScreen == null) return;
+
+        _pausePanel.SetActive(false);
+        _settingsScreen.SetActive(true);
+    }
+
+    /// <summary>
+    /// Public so the options screen's own Back and Apply buttons can be pointed at
+    /// it in the Inspector.
+    /// </summary>
+    public void CloseSettings()
+    {
+        if (_settingsScreen != null) _settingsScreen.SetActive(false);
+        _pausePanel.SetActive(true);
+    }
+
+    private void LoadMenuScene()
     {
         Time.timeScale = 1f;
-        _pausePanel.SetActive(false);
-
-        StopAllCoroutines();
-        ResetScores();
-
-        _matchController.StopMatch();
-        SetRuleText();
-
-        // StartRally parked the end screen off-screen, so it has to be put back
-        // in place rather than just switched on.
-        _panelAnimations.ShowGameEndedImmediate();
+        SceneTransition.LoadScene(_menuSceneName);
     }
 
     private void OnRematchClicked()
@@ -312,6 +328,7 @@ public class UIManager : MonoBehaviour
             _matchEndTween.InsertCallback(cardStart, PlayWinParticles);
         else
             _matchEndTween.InsertCallback(cardStart, PlayLoseParticles);
+        _matchEndTween.InsertCallback(cardStart, () => AudioManager.Play(playerWon ? SoundId.Victory : SoundId.Defeat));
 
         // Once the card has landed the winner's paddle swells, and the crown pops on after it.
         var winnerPaddle = playerWon ? _matchEndPlayerPaddle : _matchEndOpponentPaddle;
@@ -448,8 +465,7 @@ public class UIManager : MonoBehaviour
     private void OnMatchEndMenuClicked()
     {
         MatchEndGroup().interactable = false;    // the load takes a moment; no double clicks
-        Time.timeScale = 1f;
-        SceneTransition.LoadScene(_menuSceneName);
+        LoadMenuScene();
     }
 
     private void OnRallyStarted()
@@ -463,6 +479,7 @@ public class UIManager : MonoBehaviour
 
     private void OnPointWon(MatchController.Side scorerSide)
     {
+        AudioManager.Play(scorerSide == MatchController.Side.Player ? SoundId.PointWon : SoundId.PointLost);
         ShowPointScored(scorerSide);
 
         ImpactEffects.Instance.Shake(0.03f, 0.45f);
@@ -668,6 +685,10 @@ public class UIManager : MonoBehaviour
     {
         if (_ruleDrop != null && _firstTo5Text.text == wording) return;
 
+        // Here rather than in SetRuleText: this is where a wording is new, and the
+        // stinger should not fire again on every point that keeps it up.
+        if (wording == GAME_MATCHPOINT) AudioManager.Play(SoundId.MatchPoint);
+
         _ruleDrop?.Kill();
         _firstTo5Text.text = wording;
         _firstTo5Text.ForceMeshUpdate();
@@ -777,10 +798,7 @@ public class UIManager : MonoBehaviour
         if (_matchController.Countdown != null) _matchController.Countdown.Finished -= OnCountdownFinished;
         _matchController.OnMatchOver -= OnMatchOver;
 
-        _rematchButton.onClick.RemoveAllListeners();
-        _quitButton.onClick.RemoveAllListeners();
-        _quitButtonPause.onClick.RemoveAllListeners();
-        if (_resumeButton != null)
-            _resumeButton.onClick.RemoveAllListeners();
+        foreach (var button in new[] { _resumeButton, _restartButton, _settingsButton, _pauseMenuButton })
+            if (button != null) button.onClick.RemoveAllListeners();
     }
 }

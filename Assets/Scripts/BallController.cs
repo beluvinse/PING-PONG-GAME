@@ -336,6 +336,7 @@ public class BallController : MonoBehaviour
 
         _matchController.RegisterBounce(CheckCurrentSide());
 
+        AudioManager.Play(SoundId.TableBounce);
         ImpactEffects.Instance.EmitBurst(transform.position, Color.white, 6);
         Squash(1.25f, 0.6f);
     }
@@ -382,6 +383,7 @@ public class BallController : MonoBehaviour
         if (!_matchController.ballServed)
         {
             ServeFrom(paddleTransform, _matchController.server);
+            AudioManager.Play(SoundId.PaddleHit);
             ImpactEffects.Instance.EmitBurst(transform.position, Color.white, 8);
             return;
         }
@@ -399,6 +401,7 @@ public class BallController : MonoBehaviour
             AssistPlayerShot();
         else
             KeepAIShotInBounds();
+        AudioManager.Play(SoundId.PaddleHit);
         ImpactEffects.Instance.EmitBurst(transform.position, isPlayerHit ? _playerHitColor : _aiHitColor, 10);
         Squash(1.3f, 1.3f);
 

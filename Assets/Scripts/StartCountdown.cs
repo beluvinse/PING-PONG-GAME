@@ -114,8 +114,8 @@ public class StartCountdown : MonoBehaviour
             .SetId(this)
             .AppendInterval(_startDelay);
 
-        foreach (var step in _steps)
-            AppendStep(_sequence, step);
+        for (var i = 0; i < _steps.Length; i++)
+            AppendStep(_sequence, _steps[i], last: i == _steps.Length - 1);
 
         _sequence.OnComplete(() =>
         {
@@ -135,7 +135,7 @@ public class StartCountdown : MonoBehaviour
         _group.alpha = 0f;
     }
 
-    private void AppendStep(Sequence sequence, Sprite sprite)
+    private void AppendStep(Sequence sequence, Sprite sprite, bool last)
     {
         // The callback swaps the sprite, so every step reuses the same Image
         // and the sequence stays one object instead of four.
@@ -149,6 +149,7 @@ public class StartCountdown : MonoBehaviour
                 _display.rectTransform.sizeDelta *= _nativeSizeScale;
             }
 
+            AudioManager.Play(last ? SoundId.CountdownGo : SoundId.CountdownTick);
             _rect.localScale = Vector3.one * _fromScale;
             onStep?.Invoke(sprite);
         });

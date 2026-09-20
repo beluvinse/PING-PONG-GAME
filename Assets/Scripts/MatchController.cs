@@ -57,7 +57,6 @@ public class MatchController : MonoBehaviour
     {
         if (!_autoStart) return;
 
-        _countdownPending = _startCountdown != null;
         RestartGame();
     }
 
@@ -84,6 +83,12 @@ public class MatchController : MonoBehaviour
         // opponent's avatar) is in place when the serve is announced.
         MatchesStarted++;
         OnMatchStarted?.Invoke();
+
+        // The first serve of a match waits for the countdown. The first match of
+        // the scene already has one running, held back until the scene wipe opens;
+        // every match after it - a restart, a rematch - has to ask for a new one.
+        _countdownPending = _startCountdown != null;
+        if (MatchesStarted > 1 && _countdownPending) _startCountdown.Play();
 
         TransitionTo(new ServingState(this));
     }

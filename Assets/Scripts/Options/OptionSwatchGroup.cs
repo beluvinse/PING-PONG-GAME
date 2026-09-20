@@ -111,7 +111,12 @@ public class OptionSwatchGroup : MonoBehaviour
             if (_swatches[i].highlight != null)
                 _swatches[i].highlight.enabled = i == Selected;
 
-        if (notify) SelectionChanged?.Invoke(Selected);
+        // Only a real pick makes a sound: notify is false when a stored choice
+        // is being shown again as the screen opens.
+        if (!notify) return;
+
+        AudioManager.Play(SoundId.AvatarSelect);
+        SelectionChanged?.Invoke(Selected);
     }
 
 #if UNITY_EDITOR
