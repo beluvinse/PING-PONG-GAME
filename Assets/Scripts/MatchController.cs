@@ -47,6 +47,9 @@ public class MatchController : MonoBehaviour
     /// <summary>False leaves the old Play/Quit panel up instead of serving.</summary>
     public bool AutoStart => _autoStart;
 
+    /// <summary>The countdown this match waits for, so the UI can follow it. Can be null.</summary>
+    public StartCountdown Countdown => _startCountdown;
+
     private BaseMatchState _currentState;
     private bool _countdownPending;
 

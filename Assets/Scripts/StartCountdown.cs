@@ -1,26 +1,30 @@
 using System;
 using System.Collections;
 using DG.Tweening;
-using TMPro;
 using UnityEngine;
 using UnityEngine.Events;
+using UnityEngine.UI;
 
 /// <summary>
-/// "3, 2, 1, GO!" over a single TMP label, driven by one DOTween sequence.
-/// Each step pops in, holds, and pops out; when the last one clears, the
-/// finished callbacks fire so the match can start.
-/// Drop it on the countdown text object and hook <see cref="onFinished"/>.
+/// "3, 2, 1, GO!" as four images shown one after another on a single Image,
+/// driven by one DOTween sequence. Each step pops in, holds, and pops out; when
+/// the last one clears, the finished callbacks fire so the match can start.
+/// Drop it on the countdown object and hook <see cref="onFinished"/>.
 /// </summary>
 [RequireComponent(typeof(CanvasGroup))]
 public class StartCountdown : MonoBehaviour
 {
     [Header("References")]
-    [Tooltip("Leave empty to use a TMP_Text on this object or its children.")]
-    [SerializeField] private TMP_Text _label;
+    [Tooltip("Leave empty to use an Image on this object or its children.")]
+    [SerializeField] private Image _display;
 
     [Header("Steps")]
-    [Tooltip("Shown in order. The last one is the 'go' beat.")]
-    [SerializeField] private string[] _steps = { "3", "2", "1", "GO!" };
+    [Tooltip("Shown in order: 3, 2, 1 and the GO! image last. An empty slot is a blank beat.")]
+    [SerializeField] private Sprite[] _steps = new Sprite[4];
+    [Tooltip("Each image takes its own pixel size, so a wide GO! is not squeezed into the same box as a 3.")]
+    [SerializeField] private bool _useNativeSize = true;
+    [Tooltip("Multiplies that native size, to resize every step at once.")]
+    [SerializeField] private float _nativeSizeScale = 1f;
 
     [Header("Timing (seconds, per step)")]
     [Tooltip("Waits for the scene wipe to finish before counting.")]
@@ -38,11 +42,11 @@ public class StartCountdown : MonoBehaviour
     [Tooltip("On means the countdown still runs while the game is frozen (timeScale 0).")]
     [SerializeField] private bool _useUnscaledTime = true;
 
-    /// <summary>Named subclass so the string event shows up in the Inspector.</summary>
-    [Serializable] public class StepEvent : UnityEvent<string> { }
+    /// <summary>Named subclass so the sprite event shows up in the Inspector.</summary>
+    [Serializable] public class StepEvent : UnityEvent<Sprite> { }
 
     [Header("Events")]
-    [Tooltip("Fires once per step, with the text about to be shown.")]
+    [Tooltip("Fires once per step, with the image about to be shown.")]
     public StepEvent onStep;
     [Tooltip("Fires when 'GO!' has cleared the screen.")]
     public UnityEvent onFinished;
@@ -65,7 +69,7 @@ public class StartCountdown : MonoBehaviour
     {
         _group = GetComponent<CanvasGroup>();
         _rect = (RectTransform)transform;
-        if (_label == null) _label = GetComponentInChildren<TMP_Text>(true);
+        if (_display == null) _display = GetComponentInChildren<Image>(true);
 
         _group.alpha = 0f;
         _group.blocksRaycasts = false;
@@ -95,9 +99,9 @@ public class StartCountdown : MonoBehaviour
     /// <summary>Restarts the countdown from the first step.</summary>
     public void Play()
     {
-        if (_label == null)
+        if (_display == null)
         {
-            Debug.LogWarning($"{name}: StartCountdown has no TMP_Text to write to.", this);
+            Debug.LogWarning($"{name}: StartCountdown has no Image to show the steps on.", this);
             return;
         }
 
@@ -131,15 +135,22 @@ public class StartCountdown : MonoBehaviour
         _group.alpha = 0f;
     }
 
-    private void AppendStep(Sequence sequence, string text)
+    private void AppendStep(Sequence sequence, Sprite sprite)
     {
-        // The callback writes the text, so every step reuses the same label
+        // The callback swaps the sprite, so every step reuses the same Image
         // and the sequence stays one object instead of four.
         sequence.AppendCallback(() =>
         {
-            _label.text = text;
+            _display.sprite = sprite;
+            _display.enabled = sprite != null;           // an Image with no sprite draws a white box
+            if (sprite != null && _useNativeSize)
+            {
+                _display.SetNativeSize();
+                _display.rectTransform.sizeDelta *= _nativeSizeScale;
+            }
+
             _rect.localScale = Vector3.one * _fromScale;
-            onStep?.Invoke(text);
+            onStep?.Invoke(sprite);
         });
 
         sequence.Append(_rect.DOScale(1f, _popIn).SetEase(_popInEase))

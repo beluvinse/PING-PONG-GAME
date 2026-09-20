@@ -11,10 +11,14 @@ using UnityEngine.UI;
 ///
 /// Everything is a plain coloured placeholder, so final art drops straight onto
 /// the Images; layout groups keep things arranged when sizes change.
+///
+/// Tools > Ping Pong > Add Winner Crowns adds the crown over each paddle without
+/// rebuilding the screen, so it is safe to run on a screen you have already dressed.
 /// </summary>
 public static class MatchEndScreenBuilder
 {
     private const string SCREEN_NAME = "MatchEndScreen";
+    private const string CROWN_NAME = "Crown";
 
     private static readonly Color Dim = new Color(0f, 0f, 0f, 0.55f);
     private static readonly Color Navy = new Color(0.13f, 0.18f, 0.44f);
@@ -110,6 +114,83 @@ public static class MatchEndScreenBuilder
 
         so.ApplyModifiedPropertiesWithoutUndo();
         return true;
+    }
+
+    [MenuItem("Tools/Ping Pong/Add Winner Crowns")]
+    private static void AddWinnerCrowns()
+    {
+        const string title = "Winner crowns";
+        var ui = Object.FindObjectOfType<UIManager>(true);
+        if (ui == null)
+        {
+            EditorUtility.DisplayDialog(title, "No UIManager in the open scene. Open Game.unity and run this again.", "OK");
+            return;
+        }
+
+        var so = new SerializedObject(ui);
+        if (so.FindProperty("_matchEndPlayerCrown") == null)
+        {
+            EditorUtility.DisplayDialog(title, "UIManager has no crown fields yet. Let Unity finish compiling and run this again.", "OK");
+            return;
+        }
+
+        var playerPaddle = PaddleOf(so, "_matchEndPlayerScore");
+        var opponentPaddle = PaddleOf(so, "_matchEndOpponentScore");
+        if (playerPaddle == null || opponentPaddle == null)
+        {
+            EditorUtility.DisplayDialog(title,
+                "Could not find the paddles. UIManager needs Match End Player Score and Opponent Score assigned; "
+                + "each crown is added to whatever those scores sit on.", "OK");
+            return;
+        }
+
+        var playerCrown = Crown(playerPaddle);
+        var opponentCrown = Crown(opponentPaddle);
+
+        so.FindProperty("_matchEndPlayerPaddle").objectReferenceValue = playerPaddle;
+        so.FindProperty("_matchEndOpponentPaddle").objectReferenceValue = opponentPaddle;
+        so.FindProperty("_matchEndPlayerCrown").objectReferenceValue = playerCrown;
+        so.FindProperty("_matchEndOpponentCrown").objectReferenceValue = opponentCrown;
+        so.ApplyModifiedPropertiesWithoutUndo();
+
+        EditorSceneManager.MarkSceneDirty(ui.gameObject.scene);
+        Selection.activeGameObject = playerCrown.gameObject;
+
+        EditorUtility.DisplayDialog(title,
+            $"A Crown was added over '{playerPaddle.name}' and '{opponentPaddle.name}' and wired into UIManager.\n\n"
+            + "Drop your crown sprite on both Images. They start switched off: UIManager shows only the winner's, "
+            + "grows that paddle and pops the crown on.", "OK");
+    }
+
+    /// <summary>The paddle is whatever the score value sits on.</summary>
+    private static RectTransform PaddleOf(SerializedObject ui, string scoreField)
+    {
+        var score = ui.FindProperty(scoreField).objectReferenceValue as TextMeshProUGUI;
+        return score != null ? score.transform.parent as RectTransform : null;
+    }
+
+    /// <summary>An empty Image over the top edge of the paddle, waiting for your sprite.</summary>
+    private static RectTransform Crown(RectTransform paddle)
+    {
+        var existing = paddle.Find(CROWN_NAME) as RectTransform;
+        if (existing != null) return existing;               // keep the one you have already placed
+
+        var go = new GameObject(CROWN_NAME, typeof(RectTransform), typeof(Image));
+        go.transform.SetParent(paddle, false);
+
+        var rect = RectOf(go);
+        rect.anchorMin = rect.anchorMax = new Vector2(0.5f, 1f);
+        rect.pivot = new Vector2(0.5f, 0.5f);
+        rect.sizeDelta = new Vector2(200f, 200f);
+        rect.anchoredPosition = new Vector2(0f, 30f);        // sitting just above the paddle
+
+        var image = go.GetComponent<Image>();
+        image.preserveAspect = true;
+        image.raycastTarget = false;
+
+        go.SetActive(false);                                 // UIManager turns on the winner's
+        Undo.RegisterCreatedObjectUndo(go, "Add Winner Crowns");
+        return rect;
     }
 
     // ---------------------------------------------------------------- pieces

@@ -1,5 +1,3 @@
-using System.Collections;
-using System.Collections.Generic;
 using DG.Tweening;
 using TMPro;
 using UnityEngine;
@@ -19,7 +17,6 @@ public class UIManager : MonoBehaviour
     [Header("Score UI")]
     [SerializeField] private TextMeshProUGUI[] _playerScoreText;
     [SerializeField] private TextMeshProUGUI[] _aiScoreText;
-    [SerializeField] private TextMeshProUGUI _scorerText;
     [SerializeField] private TextMeshProUGUI _serverText;
     [SerializeField] private TextMeshProUGUI _firstTo5Text;
 
@@ -28,7 +25,20 @@ public class UIManager : MonoBehaviour
     [SerializeField] private Button _quitButton;
     [SerializeField] private Button _quitButtonPause;
 
-    [SerializeField] private float _messagesDuration = 1.5f;
+    [Header("Point Feedback")]
+    [Tooltip("Seconds the old number stays on screen before it leaves.")]
+    [SerializeField] private float _scoreHold = 0.15f;
+    [Tooltip("How far the old number rises as it goes, and how far below the new one starts.")]
+    [SerializeField] private float _scoreTravel = 45f;
+    [Tooltip("Seconds the old number takes to leave, and the new one to arrive.")]
+    [SerializeField] private float _scoreSwap = 0.16f;
+    [Tooltip("How hard the card of whoever scored bounces. 0 = no bounce.")]
+    [SerializeField] private float _scoreCardPunch = 0.07f;
+    [Tooltip("Star burst from behind the number. Built by Tools > Ping Pong > Add Point Sparkles.")]
+    [SerializeField] private GameObject _pointSparklesRig;
+    [SerializeField] private ParticleSystem _pointSparkles;
+    [Tooltip("Full-screen RawImage showing what the sparkle rig's camera renders.")]
+    [SerializeField] private RawImage _pointSparklesView;
 
     [Header("Rule Text Drop")]
     [Tooltip("How far above its place each letter of FIRST TO 5 / DEUCE / MATCH POINT starts.")]
@@ -62,26 +72,24 @@ public class UIManager : MonoBehaviour
     [Tooltip("Seconds the background takes to fade in. The card pops in partway through.")]
     [SerializeField] private float _matchEndBackgroundFade = 0.6f;
 
-    [Header("Win Stars")]
-    [Tooltip("Sprite for each star. Empty = no stars.")]
-    [SerializeField] private Sprite _starSprite;
-    [Tooltip("Where the stars burst from. Empty = the middle of the screen.")]
-    [SerializeField] private RectTransform _starOrigin;
-    [SerializeField] private bool _starsInFrontOfCard = true;
-    [SerializeField] private int _starCount = 28;
-    [Tooltip("Launch speed range, in canvas units per second.")]
-    [SerializeField] private Vector2 _starSpeed = new Vector2(600f, 1300f);
-    [Tooltip("0 = thrown evenly in every direction, higher = more of them go up first.")]
-    [SerializeField] private float _starUpwardBias = 0.6f;
-    [Tooltip("Pull downwards, in canvas units per second squared.")]
-    [SerializeField] private float _starGravity = 1800f;
-    [Tooltip("Seconds each star lives, picked in this range.")]
-    [SerializeField] private Vector2 _starLifetime = new Vector2(1.1f, 1.7f);
-    [Tooltip("Size a star reaches at its biggest, picked in this range.")]
-    [SerializeField] private Vector2 _starSize = new Vector2(40f, 100f);
-    [Tooltip("Stars leave over this many seconds instead of all in the same frame.")]
-    [SerializeField] private float _starStagger = 0.15f;
-    [SerializeField] private Color _starColor = Color.white;
+    [Header("Match End Winner")]
+    [Tooltip("The paddles in the end screen. The winner's one grows and gets the crown.")]
+    [SerializeField] private RectTransform _matchEndPlayerPaddle;
+    [SerializeField] private RectTransform _matchEndOpponentPaddle;
+    [Tooltip("Crown over each paddle, hidden until that side wins. Added by Tools > Ping Pong > Add Winner Crowns.")]
+    [SerializeField] private RectTransform _matchEndPlayerCrown;
+    [SerializeField] private RectTransform _matchEndOpponentCrown;
+    [Tooltip("How much wider and taller the winner's paddle gets. 1 = unchanged.")]
+    [SerializeField] private float _matchEndWinnerScale = 1.25f;
+    [Tooltip("Width and height of the loser's paddle, for contrast. 1 = unchanged.")]
+    [SerializeField] private float _matchEndLoserScale = 1f;
+
+    [Header("Win Particles")]
+    [Tooltip("Camera + ParticleSystem rig for YOU WIN. Built by Tools > Ping Pong > Build Win Particles.")]
+    [SerializeField] private GameObject _winParticlesRig;
+    [SerializeField] private ParticleSystem _winParticles;
+    [Tooltip("RawImage in the end screen that shows what the rig's camera renders.")]
+    [SerializeField] private RawImage _winParticlesView;
 
     [Header("Lose Particles")]
     [Tooltip("Camera + ParticleSystem rig for YOU LOSE. Built by Tools > Ping Pong > Build Lose Particles.")]
@@ -90,10 +98,6 @@ public class UIManager : MonoBehaviour
     [Tooltip("RawImage in the end screen that shows what the rig's camera renders.")]
     [SerializeField] private RawImage _loseParticlesView;
 
-    private const string PLAYER_SCORED_TEXT = "You scored!";
-    private const string AI_SCORED_TEXT = "Opponent scored!";
-    private const string VICTORY_TEXT = "VICTORY";
-    private const string DEFEAT_TEXT = "DEFEAT";
     private const string PLAYER_SERVES_TEXT = "Your serve";
     private const string OPPONENT_SERVES_TEXT = "Opponent to serve";
     private const string RESUME_LABEL = "Resume";
@@ -107,16 +111,17 @@ public class UIManager : MonoBehaviour
     private const int DEUCE_SCORE = 4;
 
     private Button _resumeButton;
-    private Coroutine _scorerTypeRoutine;
+    private Camera _pointSparklesCamera;
+    private Sequence _scoreTween;
+    private Vector2 _playerScoreRest, _aiScoreRest;
+    private RectTransform _playerScoreCard, _aiScoreCard;
     private Sequence _ruleDrop;
     private float[] _ruleLetterProgress = new float[0];
     private TMP_MeshInfo[] _ruleRestingMesh;
     private bool _ruleDropWaiting;
     private Sequence _matchEndTween;
     private float _matchEndBackgroundAlpha = -1f;
-    private Sequence _starBurst;
-    private RectTransform _starContainer;
-    private readonly List<Image> _stars = new List<Image>();
+    private Vector2 _playerPaddleSize, _opponentPaddleSize, _playerCrownSize, _opponentCrownSize;
 
     private void Awake()
     {
@@ -126,9 +131,10 @@ public class UIManager : MonoBehaviour
         // Auto-start serves on its own, so the Play/Quit panel would only be in
         // the way; without it, that panel is the only way into a match.
         if (_matchEndScreen != null) _matchEndScreen.SetActive(false);
-        StopLoseParticles();
+        StopMatchEndParticles();
+        CacheWinnerSizes();
         _pausePanel.SetActive(false);
-        _scorerText.text = "";
+        CacheScoreAnimation();
         // Always on screen; every new wording drops in letter by letter.
         _firstTo5Text.gameObject.SetActive(true);
         _firstTo5Text.maxVisibleCharacters = int.MaxValue;
@@ -162,6 +168,8 @@ public class UIManager : MonoBehaviour
         _matchController.OnPointWon += OnPointWon;
         _matchController.OnRallyStarted += OnRallyStarted;
         _matchController.OnMatchOver += OnMatchOver;
+        _matchController.OnMatchStarted += OnMatchStarted;
+        if (_matchController.Countdown != null) _matchController.Countdown.Finished += OnCountdownFinished;
 
         _rematchButton.onClick.AddListener(OnRematchClicked);
         _quitButton.onClick.AddListener(OnQuitClicked);
@@ -224,9 +232,6 @@ public class UIManager : MonoBehaviour
         _pausePanel.SetActive(false);
 
         StopAllCoroutines();
-        _scorerTypeRoutine = null;
-        _scorerText.text = "";
-        _scorerText.maxVisibleCharacters = int.MaxValue;
         ResetScores();
 
         _matchController.StopMatch();
@@ -256,6 +261,9 @@ public class UIManager : MonoBehaviour
 
         // Until the end screen is built, the old VICTORY / DEFEAT flow still runs.
         _panelAnimations.MatchOver();
+
+        // They leave on the same beat the end screen arrives, so the last point is read first.
+        _panelAnimations.HideMatchSigns(_matchEndDelay);
     }
 
     private void ShowMatchEnd(MatchController.Side winner)
@@ -264,6 +272,10 @@ public class UIManager : MonoBehaviour
             _matchEndTitle.sprite = winner == MatchController.Side.Player ? _winTitleSprite : _loseTitleSprite;
         if (_matchEndPlayerScore != null) _matchEndPlayerScore.text = _matchController.playerScore.ToString();
         if (_matchEndOpponentScore != null) _matchEndOpponentScore.text = _matchController.aiScore.ToString();
+
+        var playerWon = winner == MatchController.Side.Player;
+        ResetWinnerMark(_matchEndPlayerPaddle, _playerPaddleSize, _matchEndPlayerCrown, _playerCrownSize, playerWon);
+        ResetWinnerMark(_matchEndOpponentPaddle, _opponentPaddleSize, _matchEndOpponentCrown, _opponentCrownSize, !playerWon);
 
         var screen = MatchEndGroup();
         var background = MatchEndBackground();
@@ -296,136 +308,87 @@ public class UIManager : MonoBehaviour
             _matchEndTween.Insert(cardStart, card.DOFade(1f, 0.25f));
         if (_matchEndCard != null)
             _matchEndTween.Insert(cardStart, _matchEndCard.DOScale(1f, 0.45f).SetEase(Ease.OutBack));
-        if (winner == MatchController.Side.Player)
-            _matchEndTween.InsertCallback(cardStart, BurstStars);
+        if (playerWon)
+            _matchEndTween.InsertCallback(cardStart, PlayWinParticles);
         else
             _matchEndTween.InsertCallback(cardStart, PlayLoseParticles);
+
+        // Once the card has landed the winner's paddle swells, and the crown pops on after it.
+        var winnerPaddle = playerWon ? _matchEndPlayerPaddle : _matchEndOpponentPaddle;
+        var winnerCrown = playerWon ? _matchEndPlayerCrown : _matchEndOpponentCrown;
+        var paddleSize = playerWon ? _playerPaddleSize : _opponentPaddleSize;
+        var crownSize = playerWon ? _playerCrownSize : _opponentCrownSize;
+        if (winnerPaddle != null)
+            _matchEndTween.Insert(cardStart + 0.2f, winnerPaddle.DOSizeDelta(paddleSize * _matchEndWinnerScale, 0.5f).SetEase(Ease.OutBack));
+        if (winnerCrown != null)
+            _matchEndTween.Insert(cardStart + 0.35f, winnerCrown.DOSizeDelta(crownSize, 0.5f).SetEase(Ease.OutBack));
+
         _matchEndTween.OnComplete(() => screen.interactable = true);
     }
 
     /// <summary>
-    /// Throws _starCount stars out from _starOrigin. Each one is a pooled Image
-    /// driven by its own tween: it flies out, falls under gravity and spins like
-    /// confetti, grows then shrinks, and fades out over the second half of its life.
+    /// Everything here grows by width and height, never by scale, so the sizes the
+    /// scene rests at are read once - after the first match the paddles are carrying
+    /// whatever size that winner left them at.
     /// </summary>
-    private void BurstStars()
+    private void CacheWinnerSizes()
     {
-        if (_starSprite == null) return;
-
-        var container = StarContainer();
-        // Last first, so the card's index is not shifted when moving the stars just before it.
-        container.SetAsLastSibling();
-        if (!_starsInFrontOfCard && _matchEndCard != null)
-            container.SetSiblingIndex(_matchEndCard.GetSiblingIndex());
-
-        var origin = _starOrigin != null ? (Vector2)container.InverseTransformPoint(_starOrigin.position) : Vector2.zero;
-
-        StopStars();
-        _starBurst = DOTween.Sequence().SetUpdate(true);
-        for (var i = 0; i < _starCount; i++)
-            _starBurst.Insert(Random.Range(0f, _starStagger), StarTween(StarAt(container, i), origin));
-    }
-
-    private Tween StarTween(Image star, Vector2 origin)
-    {
-        var rect = star.rectTransform;
-
-        var direction = Random.insideUnitCircle.normalized;
-        direction.y += _starUpwardBias;
-        var velocity = direction.normalized * Random.Range(_starSpeed.x, _starSpeed.y);
-
-        var life = Random.Range(_starLifetime.x, _starLifetime.y);
-        var startAngle = Random.Range(0f, 360f);
-        var spin = Random.Range(-360f, 360f);
-        rect.sizeDelta = Vector2.one * Random.Range(_starSize.x, _starSize.y);
-
-        var progress = 0f;
-        return DOTween.To(() => progress, p => progress = p, 1f, life)
-            .SetEase(Ease.Linear)
-            .OnStart(() => star.gameObject.SetActive(true))
-            .OnUpdate(() =>
-            {
-                var time = progress * life;
-                rect.anchoredPosition = origin + velocity * time + Vector2.down * (0.5f * _starGravity * time * time);
-                rect.localRotation = Quaternion.Euler(0f, 0f, startAngle + spin * time);
-
-                // Small -> big -> small, and fully gone by the end.
-                rect.localScale = Vector3.one * Mathf.Sin(Mathf.PI * progress);
-                SetAlpha(star, _starColor.a * (1f - Mathf.SmoothStep(0f, 1f, (progress - 0.35f) / 0.65f)));
-            })
-            .OnComplete(() => star.gameObject.SetActive(false));
-    }
-
-    private RectTransform StarContainer()
-    {
-        if (_starContainer != null) return _starContainer;
-
-        var go = new GameObject("WinStars", typeof(RectTransform));
-        go.transform.SetParent(_matchEndScreen.transform, false);
-
-        _starContainer = (RectTransform)go.transform;
-        _starContainer.anchorMin = Vector2.zero;
-        _starContainer.anchorMax = Vector2.one;
-        _starContainer.offsetMin = Vector2.zero;
-        _starContainer.offsetMax = Vector2.zero;
-        return _starContainer;
-    }
-
-    private Image StarAt(RectTransform container, int index)
-    {
-        while (_stars.Count <= index)
-        {
-            var go = new GameObject("Star", typeof(RectTransform), typeof(Image));
-            go.transform.SetParent(container, false);
-            go.SetActive(false);
-
-            var image = go.GetComponent<Image>();
-            image.raycastTarget = false;        // never in the way of the buttons
-            image.preserveAspect = true;
-            image.rectTransform.anchorMin = image.rectTransform.anchorMax = image.rectTransform.pivot = new Vector2(0.5f, 0.5f);
-            _stars.Add(image);
-        }
-
-        var star = _stars[index];
-        star.sprite = _starSprite;
-        star.color = _starColor;
-        star.rectTransform.localScale = Vector3.zero;
-        return star;
+        if (_matchEndPlayerPaddle != null) _playerPaddleSize = _matchEndPlayerPaddle.sizeDelta;
+        if (_matchEndOpponentPaddle != null) _opponentPaddleSize = _matchEndOpponentPaddle.sizeDelta;
+        if (_matchEndPlayerCrown != null) _playerCrownSize = _matchEndPlayerCrown.sizeDelta;
+        if (_matchEndOpponentCrown != null) _opponentCrownSize = _matchEndOpponentCrown.sizeDelta;
     }
 
     /// <summary>
-    /// The YOU LOSE particles are a regular ParticleSystem designed in the Inspector.
-    /// The overlay canvas would draw over them, so the rig's own camera renders
-    /// them into a RenderTexture that _loseParticlesView shows. The rig, camera
-    /// included, only runs while the screen is up.
+    /// Says who won before the screen animates: the loser sits at its resting size
+    /// with no crown, the winner starts at that same size with the crown still at no
+    /// size at all, which is what the tweens in ShowMatchEnd grow from.
     /// </summary>
-    private void PlayLoseParticles()
+    private void ResetWinnerMark(RectTransform paddle, Vector2 paddleSize, RectTransform crown, Vector2 crownSize, bool won)
     {
-        if (_loseParticles == null) return;
+        if (paddle != null) paddle.sizeDelta = paddleSize * (won ? 1f : _matchEndLoserScale);
+        if (crown == null) return;
 
-        if (_loseParticlesRig != null) _loseParticlesRig.SetActive(true);
-        if (_loseParticlesView != null)
+        crown.sizeDelta = won ? Vector2.zero : crownSize;
+        crown.gameObject.SetActive(won);
+    }
+
+    /// <summary>
+    /// Both end screens work the same way: a ParticleSystem designed in the Inspector
+    /// with its own camera, because the overlay canvas draws over anything a camera
+    /// renders. That camera renders into a RenderTexture shown by the screen's
+    /// RawImage, and each rig only runs while its screen is up.
+    /// </summary>
+    private void PlayWinParticles() => PlayParticles(_winParticlesRig, _winParticles, _winParticlesView);
+
+    private void PlayLoseParticles() => PlayParticles(_loseParticlesRig, _loseParticles, _loseParticlesView);
+
+    private void StopMatchEndParticles()
+    {
+        StopParticles(_winParticlesRig, _winParticles, _winParticlesView);
+        StopParticles(_loseParticlesRig, _loseParticles, _loseParticlesView);
+    }
+
+    private static void PlayParticles(GameObject rig, ParticleSystem particles, RawImage view)
+    {
+        if (particles == null) return;
+
+        if (rig != null) rig.SetActive(true);
+        if (view != null)
         {
-            _loseParticlesView.enabled = true;
-            SetAlpha(_loseParticlesView, 1f);
+            view.enabled = true;
+            SetAlpha(view, 1f);
         }
 
-        _loseParticles.Clear(true);
-        _loseParticles.Play(true);
+        particles.Clear(true);
+        particles.Play(true);
     }
 
-    private void StopLoseParticles()
+    private static void StopParticles(GameObject rig, ParticleSystem particles, RawImage view)
     {
-        if (_loseParticles != null) _loseParticles.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
-        if (_loseParticlesView != null) _loseParticlesView.enabled = false;
-        if (_loseParticlesRig != null) _loseParticlesRig.SetActive(false);
-    }
-
-    private void StopStars()
-    {
-        _starBurst?.Kill();
-        foreach (var star in _stars)
-            if (star != null) star.gameObject.SetActive(false);
+        if (particles != null) particles.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+        if (view != null) view.enabled = false;
+        if (rig != null) rig.SetActive(false);
     }
 
     private void HideMatchEnd(TweenCallback onHidden)
@@ -434,7 +397,6 @@ public class UIManager : MonoBehaviour
         var background = MatchEndBackground();
         var card = CardGroup();
         _matchEndTween?.Kill();
-        StopStars();
         screen.interactable = false;
 
         // The reverse: the card leaves first, then the background fades out.
@@ -445,12 +407,13 @@ public class UIManager : MonoBehaviour
             _matchEndTween.Insert(0f, _matchEndCard.DOScale(0.85f, 0.2f).SetEase(Ease.InBack));
         if (background != null)
             _matchEndTween.Insert(0.1f, background.DOFade(0f, _matchEndBackgroundFade * 0.5f));
-        if (_loseParticlesView != null && _loseParticlesView.enabled)
-            _matchEndTween.Insert(0f, _loseParticlesView.DOFade(0f, 0.25f));
+        foreach (var particleView in new[] { _winParticlesView, _loseParticlesView })
+            if (particleView != null && particleView.enabled)
+                _matchEndTween.Insert(0f, particleView.DOFade(0f, 0.25f));
         _matchEndTween.OnComplete(() =>
         {
             _matchEndScreen.SetActive(false);
-            StopLoseParticles();
+            StopMatchEndParticles();
             onHidden?.Invoke();
         });
     }
@@ -500,13 +463,7 @@ public class UIManager : MonoBehaviour
 
     private void OnPointWon(MatchController.Side scorerSide)
     {
-        var newText = scorerSide.Equals(MatchController.Side.Player) ? PLAYER_SCORED_TEXT : AI_SCORED_TEXT;
-        _scorerText.text = newText;
-
-        if (_scorerTypeRoutine != null)
-            StopCoroutine(_scorerTypeRoutine);
-        _scorerTypeRoutine = StartCoroutine(TypeText(_scorerText, newText));
-        StartCoroutine(UpdateScore(scorerSide, .5f));
+        ShowPointScored(scorerSide);
 
         ImpactEffects.Instance.Shake(0.03f, 0.45f);
     }
@@ -519,84 +476,167 @@ public class UIManager : MonoBehaviour
 
     private void OnBallServed(bool ballServed)
     {
-        if (!ballServed) return;
-        _scorerText.text = "";
-        _scorerText.maxVisibleCharacters = int.MaxValue;
+        // The ball is placed the moment the countdown ends, so this is also what
+        // brings the signs in when no countdown runs, as in a rematch.
+        _panelAnimations.ShowMatchSigns();
     }
 
-    private IEnumerator TextPop(TextMeshProUGUI text)
+    /// <summary>
+    /// The numbers swap by moving, so where they rest has to be read before the
+    /// first point moves them.
+    /// </summary>
+    private void CacheScoreAnimation()
     {
-        text.gameObject.SetActive(true);
-        var color = text.color;
-        color.a = 1f;
-        text.color = color;
+        if (MainScore(_playerScoreText) != null) _playerScoreRest = MainScore(_playerScoreText).rectTransform.anchoredPosition;
+        if (MainScore(_aiScoreText) != null) _aiScoreRest = MainScore(_aiScoreText).rectTransform.anchoredPosition;
+        _playerScoreCard = ScoreCard(_playerScoreText);
+        _aiScoreCard = ScoreCard(_aiScoreText);
 
-        var rect = text.rectTransform;
-        rect.localScale = Vector3.zero;
-
-        yield return ScaleTo(rect, 1.3f, 0.15f);
-        yield return ScaleTo(rect, 0.9f, 0.1f);
-        yield return ScaleTo(rect, 1f, 0.08f);
-
-        yield return new WaitForSeconds(_messagesDuration);
-
-        var fadeDuration = 0.3f;
-        var elapsed = 0f;
-
-        while (elapsed < fadeDuration)
-        {
-            elapsed += Time.deltaTime;
-            color.a = Mathf.Lerp(1f, 0f, elapsed / fadeDuration);
-            text.color = color;
-            yield return null;
-        }
-
-        color.a = 0f;
-        text.color = color;
-
-        text.gameObject.SetActive(false);
+        // Asking the rig's camera beats hard-coding how much of the world it shows.
+        if (_pointSparklesRig != null) _pointSparklesCamera = _pointSparklesRig.GetComponentInChildren<Camera>(true);
+        StopParticles(_pointSparklesRig, _pointSparkles, _pointSparklesView);
     }
 
-    private IEnumerator ScaleTo(RectTransform rect, float targetScale, float duration)
+    /// <summary>
+    /// The point lands on the number itself. The old score holds for a beat, lifts
+    /// away and fades out; the new one rises into the empty place and punches
+    /// 1 - 1.35 - 0.9 - 1. On that landing the panel bounces and a few big stars
+    /// burst out from behind the number.
+    /// </summary>
+    private void ShowPointScored(MatchController.Side side)
     {
-        var start = rect.localScale;
-        var target = Vector3.one * targetScale;
-        var elapsed = 0f;
+        var player = side == MatchController.Side.Player;
+        var texts = player ? _playerScoreText : _aiScoreText;
+        var score = (player ? _matchController.playerScore : _matchController.aiScore).ToString();
+        var main = MainScore(texts);
 
-        while (elapsed < duration)
+        if (main == null)
         {
-            elapsed += Time.deltaTime;
-            rect.localScale = Vector3.Lerp(
-                start,
-                target,
-                elapsed / duration
-            );
-            yield return null;
+            SetScoreTexts(texts, score);
+            SetRuleText();
+            return;
         }
 
-        rect.localScale = target;
+        _scoreTween?.Kill();
+        ResetScoreVisuals();                                 // whatever a cut-short swap left behind
+
+        var rect = main.rectTransform;
+        var rest = player ? _playerScoreRest : _aiScoreRest;
+
+        _scoreTween = DOTween.Sequence().SetUpdate(true);
+
+        // The old number holds, then lifts away and is gone.
+        _scoreTween.AppendInterval(_scoreHold);
+        _scoreTween.Append(rect.DOAnchorPosY(rest.y + _scoreTravel, _scoreSwap).SetEase(Ease.InQuad));
+        _scoreTween.Join(FadeText(main, 0f, _scoreSwap));
+
+        // The new one is placed below the empty spot and rises into it.
+        _scoreTween.AppendCallback(() =>
+        {
+            SetScoreTexts(texts, score);
+            rect.anchoredPosition = new Vector2(rest.x, rest.y - _scoreTravel);
+            SetRuleText();                                   // follows the number on screen
+        });
+        _scoreTween.Append(rect.DOAnchorPosY(rest.y, _scoreSwap).SetEase(Ease.OutCubic));
+        _scoreTween.Join(FadeText(main, 1f, _scoreSwap * 0.7f));
+
+        // It lands: stars, panel bounce and punch all go off together.
+        _scoreTween.AppendCallback(() =>
+        {
+            PlayPointSparkles(rect);
+            PunchCard(player ? _playerScoreCard : _aiScoreCard);
+        });
+        _scoreTween.Append(rect.DOScale(1.35f, 0.08f).SetEase(Ease.OutQuad));
+        _scoreTween.Append(rect.DOScale(0.9f, 0.07f).SetEase(Ease.InOutQuad));
+        _scoreTween.Append(rect.DOScale(1f, 0.06f).SetEase(Ease.OutQuad));
     }
 
-    private IEnumerator UpdateScore(MatchController.Side scoreSide, float seconds)
+    /// <summary>
+    /// A short bounce of the card that just scored, and only that one: the panel
+    /// holding both scores would take the other side along with it.
+    /// </summary>
+    private void PunchCard(RectTransform card)
     {
-        yield return new WaitForSeconds(seconds);
-        var texts = scoreSide == MatchController.Side.Player ? _playerScoreText : _aiScoreText;
-        var score = scoreSide == MatchController.Side.Player
-            ? _matchController.playerScore.ToString()
-            : _matchController.aiScore.ToString();
+        if (card == null) return;
 
-        // The first text gets the bump animation, any others are just set.
-        // Empty slots are skipped: the side panel's copy of the score is gone.
-        for (var i = 0; i < texts.Length; i++)
-        {
-            if (texts[i] == null) continue;
+        card.DOKill();
+        card.localScale = Vector3.one;
+        card.DOPunchScale(Vector3.one * _scoreCardPunch, 0.35f, 6, 0.8f).SetUpdate(true);
+    }
 
-            if (i == 0) StartCoroutine(AnimateScore(texts[i], score));
-            else texts[i].text = score;
-        }
+    /// <summary>The card a number sits on is its parent: Player / Score in the prefab.</summary>
+    private static RectTransform ScoreCard(TextMeshProUGUI[] texts)
+    {
+        var main = MainScore(texts);
+        return main != null ? main.rectTransform.parent as RectTransform : null;
+    }
 
-        // Follows the score that is on screen, not the one about to be.
-        SetRuleText();
+    /// <summary>The first filled slot is the score that is on screen and animated.</summary>
+    private static TextMeshProUGUI MainScore(TextMeshProUGUI[] texts)
+    {
+        foreach (var text in texts)
+            if (text != null) return text;
+
+        return null;
+    }
+
+    /// <summary>Empty slots are skipped: the side panel's copy of the score is gone.</summary>
+    private static void SetScoreTexts(TextMeshProUGUI[] texts, string score)
+    {
+        foreach (var text in texts)
+            if (text != null) text.text = score;
+    }
+
+    /// <summary>DOTween's free build has no TMP module, so the alpha is tweened by hand.</summary>
+    private static Tween FadeText(TextMeshProUGUI text, float alpha, float duration) =>
+        DOTween.To(() => text.alpha, value => text.alpha = value, alpha, duration);
+
+    /// <summary>Puts both numbers back where they belong, at full size and opacity.</summary>
+    private void ResetScoreVisuals()
+    {
+        RestScore(_playerScoreText, _playerScoreRest);
+        RestScore(_aiScoreText, _aiScoreRest);
+    }
+
+    private static void RestScore(TextMeshProUGUI[] texts, Vector2 rest)
+    {
+        var main = MainScore(texts);
+        if (main == null) return;
+
+        main.rectTransform.DOKill();
+        main.rectTransform.anchoredPosition = rest;
+        main.rectTransform.localScale = Vector3.one;
+        main.alpha = 1f;
+
+        var card = ScoreCard(texts);
+        if (card == null) return;
+
+        card.DOKill();
+        card.localScale = Vector3.one;                       // a bounce cut short would have left it off
+    }
+
+    /// <summary>
+    /// The stars live in a rig far from the table, like the end-screen ones, because
+    /// an overlay canvas draws over anything a camera renders. That camera fills the
+    /// screen, so where the number is on screen is where the burst goes in the rig.
+    /// The rig switches itself off once the last star has died, camera included.
+    /// </summary>
+    private void PlayPointSparkles(RectTransform anchor)
+    {
+        if (_pointSparkles == null || _pointSparklesCamera == null) return;
+
+        var onScreen = RectTransformUtility.WorldToScreenPoint(null, anchor.position);
+        var height = _pointSparklesCamera.orthographicSize * 2f;
+        _pointSparkles.transform.localPosition = new Vector3(
+            (onScreen.x / Screen.width - 0.5f) * height * _pointSparklesCamera.aspect,
+            (onScreen.y / Screen.height - 0.5f) * height,
+            0f);
+
+        PlayParticles(_pointSparklesRig, _pointSparkles, _pointSparklesView);
+
+        // Everything leaves in the first burst, so the longest life is the whole show.
+        DOVirtual.DelayedCall(_pointSparkles.main.startLifetime.constantMax + 0.1f,
+            () => StopParticles(_pointSparklesRig, _pointSparkles, _pointSparklesView), true);
     }
 
     /// <summary>
@@ -693,70 +733,39 @@ public class UIManager : MonoBehaviour
         _firstTo5Text.UpdateVertexData(TMP_VertexDataUpdateFlags.Vertices | TMP_VertexDataUpdateFlags.Colors32);
     }
 
+    /// <summary>
+    /// A new match is 0-0, whatever the scores said before. Awake runs before
+    /// MatchController resets them, so it sees the scores saved in the scene; this
+    /// puts the HUD and the rule text right once the match has really begun.
+    /// </summary>
+    private void OnMatchStarted()
+    {
+        ResetScores();
+        SetRuleText();
+
+        // Out of the way until the countdown lets them in. If there is no countdown
+        // the first rally drops them, so they never stay stuck above the screen.
+        _panelAnimations.ParkMatchSigns();
+    }
+
+    private void OnCountdownFinished() => _panelAnimations.ShowMatchSigns();
+
     private void ResetScores()
     {
+        _scoreTween?.Kill();
+        ResetScoreVisuals();
+
         foreach (var t in _playerScoreText)
             if (t != null) t.text = "0";
         foreach (var t in _aiScoreText)
             if (t != null) t.text = "0";
     }
 
-    private IEnumerator AnimateScore(TextMeshProUGUI text, string newValue)
-    {
-        var rect = text.rectTransform;
-        var originalPos = rect.anchoredPosition;
-        var topPos = originalPos + Vector2.up * 40f;
-        var duration = 0.15f;
-        var t = 0f;
-        while (t < duration)
-        {
-            t += Time.deltaTime;
-            rect.anchoredPosition = Vector2.Lerp(originalPos, topPos, t / duration);
-            yield return null;
-        }
-
-        text.text = newValue;
-        rect.localScale = Vector3.one * 1.35f;
-        t = 0;
-        while (t < duration)
-        {
-            t += Time.deltaTime;
-            var progress = t / duration;
-            rect.anchoredPosition = Vector2.Lerp(topPos, originalPos, progress);
-            rect.localScale = Vector3.Lerp(Vector3.one * 1.35f, Vector3.one, progress);
-            yield return null;
-        }
-
-        rect.anchoredPosition = originalPos;
-        rect.localScale = Vector3.one;
-    }
-
-    private IEnumerator TypeText(TextMeshProUGUI text, string message)
-    {
-        text.text = message;
-
-        text.maxVisibleCharacters = 0;
-
-        while (text.maxVisibleCharacters < message.Length)
-        {
-            text.maxVisibleCharacters++;
-            yield return new WaitForSeconds(0.05f);
-        }
-
-        yield return new WaitForSeconds(_messagesDuration);
-
-        while (text.maxVisibleCharacters > 0)
-        {
-            text.maxVisibleCharacters--;
-            yield return new WaitForSeconds(0.03f);
-        }
-    }
-
     private void OnDestroy()
     {
         _ruleDrop?.Kill();
         _matchEndTween?.Kill();
-        _starBurst?.Kill();
+        _scoreTween?.Kill();
         if (_matchEndRematchButton != null) _matchEndRematchButton.onClick.RemoveAllListeners();
         if (_matchEndMenuButton != null) _matchEndMenuButton.onClick.RemoveAllListeners();
 
@@ -764,6 +773,8 @@ public class UIManager : MonoBehaviour
         _matchController.OnServerAnnounced -= OnServerAnnounced;
         _matchController.OnPointWon -= OnPointWon;
         _matchController.OnRallyStarted -= OnRallyStarted;
+        _matchController.OnMatchStarted -= OnMatchStarted;
+        if (_matchController.Countdown != null) _matchController.Countdown.Finished -= OnCountdownFinished;
         _matchController.OnMatchOver -= OnMatchOver;
 
         _rematchButton.onClick.RemoveAllListeners();

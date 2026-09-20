@@ -5,23 +5,19 @@ public class UIPanelAnimations : MonoBehaviour
 {
     [Header("References")]
     [SerializeField] private RectTransform _scoresMainPanel;
+    [Tooltip("The FIRST TO 5 sign - the panel, not the text inside it.")]
+    [SerializeField] private RectTransform _firstTo5Panel;
     [SerializeField] private RectTransform _gameEndedPanel;
-    [Tooltip("The 'Server' object the Match Info clips faded. Needs a CanvasGroup.")]
-    [SerializeField] private CanvasGroup _serverInfo;
+    [Tooltip("The whole Server Info panel, border included. A CanvasGroup is added if it has none.")]
+    [SerializeField] private RectTransform _serverInfo;
 
-    [Header("Anchored positions (from the clips)")]
-    [SerializeField] private float _mainPanelShownY = 82.75f;
-    [SerializeField] private float _mainPanelHiddenY = 300f;
-    [SerializeField] private float _sidePanelShownX = -130f;
-    [SerializeField] private float _sidePanelHiddenX = 170f;
+    [Header("Anchored positions")]
+    [Tooltip("How far above its resting place each sign parks while hidden. Both rest wherever the scene puts them.")]
+    [SerializeField] private float _signHiddenOffset = 420f;
     [SerializeField] private float _gameEndedShownY = -610f;
     [SerializeField] private float _gameEndedHiddenY = -1100f;
-    [SerializeField] private float _titleShownY = -18f;
-    [SerializeField] private float _titleHiddenY = 354f;
 
     [Header("Durations")]
-    [Tooltip("ShowMainPanel / ShowSidePanel: 1s clip at 3x speed.")]
-    [SerializeField] private float _panelSwapDuration = 0.333f;
     [Tooltip("StartRally: 1s clip at 2x speed.")]
     [SerializeField] private float _startRallyDuration = 0.5f;
     [Tooltip("MatchOver: 1.05s clip at 1x speed.")]
@@ -36,8 +32,32 @@ public class UIPanelAnimations : MonoBehaviour
     [Header("Easing")]
     [Tooltip("The clips used Unity's smooth auto tangents, which read as an ease in/out.")]
     [SerializeField] private Ease _slideEase = Ease.InOutSine;
+    [Tooltip("Dropping in: OutBack lands with a small bounce.")]
+    [SerializeField] private Ease _dropEase = Ease.OutBack;
+    [Tooltip("Riding back up: InBack dips before it leaves.")]
+    [SerializeField] private Ease _raiseEase = Ease.InBack;
 
     private Sequence _serverSequence;
+    private CanvasGroup _serverGroup;
+    private float _scoresRestY, _firstTo5RestY;
+
+    private void Awake()
+    {
+        // Where the signs rest is read from the scene, so moving them in the editor
+        // is all it takes. These used to be numbers copied from the animation clips,
+        // which stayed behind when a panel moved and pushed it off the top.
+        if (_scoresMainPanel != null) _scoresRestY = _scoresMainPanel.anchoredPosition.y;
+        if (_firstTo5Panel != null) _firstTo5RestY = _firstTo5Panel.anchoredPosition.y;
+
+        // The border is on the panel itself, so the panel is what fades: fading only
+        // the contents left the border sitting there.
+        if (_serverInfo != null)
+        {
+            _serverGroup = _serverInfo.GetComponent<CanvasGroup>();
+            if (_serverGroup == null) _serverGroup = _serverInfo.gameObject.AddComponent<CanvasGroup>();
+            _serverGroup.alpha = 0f;                     // nothing to announce until a serve
+        }
+    }
 
     private void OnDestroy()
     {
@@ -45,18 +65,41 @@ public class UIPanelAnimations : MonoBehaviour
     }
 
     /// <summary>
-    /// Leaves the end-of-match screen: the panel drops away
-    /// and the score panel arrives. Both get switched off once they are gone.
+    /// Leaves the end-of-match screen: the panel drops away and is switched off
+    /// once it is gone. The signs are not touched here - a serve is announced the
+    /// moment a match starts, which would put them on screen during the countdown.
     /// </summary>
     public void StartRally()
     {
-        if (_scoresMainPanel != null)
-        {
-            _scoresMainPanel.gameObject.SetActive(true);
-            Slide(_scoresMainPanel, y: _mainPanelShownY, duration: _startRallyDuration);
-        }
-
         SlideOut(_gameEndedPanel, _gameEndedHiddenY);
+    }
+
+    /// <summary>
+    /// Parks the score panel and the FIRST TO 5 sign above the screen with no
+    /// animation. A match begins with them out of the way, and the countdown
+    /// drops them in.
+    /// </summary>
+    public void ParkMatchSigns()
+    {
+        Park(_scoresMainPanel, _scoresRestY);
+        Park(_firstTo5Panel, _firstTo5RestY);
+    }
+
+    /// <summary>Drops both signs from above into the place the scene gives them.</summary>
+    public void ShowMatchSigns()
+    {
+        Drop(_scoresMainPanel, _scoresRestY);
+        Drop(_firstTo5Panel, _firstTo5RestY);
+    }
+
+    /// <summary>
+    /// Sends both signs back up out of the screen. The delay lets the last point
+    /// be read before the scores leave.
+    /// </summary>
+    public void HideMatchSigns(float delay = 0f)
+    {
+        Raise(_scoresMainPanel, _scoresRestY, delay);
+        Raise(_firstTo5Panel, _firstTo5RestY, delay);
     }
 
     /// <summary>
@@ -76,16 +119,16 @@ public class UIPanelAnimations : MonoBehaviour
     /// <summary>Fades the server announcement in, holds it, fades it back out.</summary>
     public void ShowServerInfo()
     {
-        if (_serverInfo == null) return;
+        if (_serverGroup == null) return;
 
         _serverSequence?.Kill();
-        _serverInfo.alpha = 0f;
+        _serverGroup.alpha = 0f;
 
         _serverSequence = DOTween.Sequence()
             .AppendInterval(_serverFadeInDelay)
-            .Append(_serverInfo.DOFade(1f, _serverFadeInDuration))
+            .Append(_serverGroup.DOFade(1f, _serverFadeInDuration))
             .AppendInterval(_serverHoldDuration)
-            .Append(_serverInfo.DOFade(0f, _serverFadeOutDuration))
+            .Append(_serverGroup.DOFade(0f, _serverFadeOutDuration))
             .OnComplete(() => _serverSequence = null);
     }
 
@@ -109,18 +152,43 @@ public class UIPanelAnimations : MonoBehaviour
     public void ResetToHidden()
     {
         KillAll();
-        if (_scoresMainPanel != null) _scoresMainPanel.anchoredPosition = WithY(_scoresMainPanel, _mainPanelHiddenY);
+        ParkMatchSigns();
         if (_gameEndedPanel != null) _gameEndedPanel.anchoredPosition = WithY(_gameEndedPanel, _gameEndedHiddenY);
-        if (_serverInfo != null) _serverInfo.alpha = 0f;
+        if (_serverGroup != null) _serverGroup.alpha = 0f;
     }
 
-    private void Slide(RectTransform rect, float duration, float? x = null, float? y = null)
+    private void Park(RectTransform rect, float restY)
     {
         if (rect == null) return;
 
         rect.DOKill();
-        if (x.HasValue) rect.DOAnchorPosX(x.Value, duration).SetEase(_slideEase);
-        if (y.HasValue) rect.DOAnchorPosY(y.Value, duration).SetEase(_slideEase);
+        rect.gameObject.SetActive(true);
+        rect.localScale = Vector3.one;                   // a bounce cut short would have left it off
+        rect.anchoredPosition = WithY(rect, restY + _signHiddenOffset);
+    }
+
+    private void Drop(RectTransform rect, float restY)
+    {
+        if (rect == null) return;
+
+        // Down already, or on its way: the countdown ending and the ball being
+        // placed land within a frame of each other, and every serve asks again.
+        if (Mathf.Approximately(rect.anchoredPosition.y, restY) || DOTween.IsTweening(rect)) return;
+
+        rect.DOKill();
+        rect.gameObject.SetActive(true);
+        rect.DOAnchorPosY(restY, _startRallyDuration).SetEase(_dropEase).SetUpdate(true);
+    }
+
+    private void Raise(RectTransform rect, float restY, float delay)
+    {
+        if (rect == null) return;
+
+        rect.DOKill();
+        rect.DOAnchorPosY(restY + _signHiddenOffset, _startRallyDuration)
+            .SetDelay(delay)
+            .SetEase(_raiseEase)
+            .SetUpdate(true);
     }
 
     private void SlideOut(RectTransform rect, float hiddenY)
@@ -139,10 +207,10 @@ public class UIPanelAnimations : MonoBehaviour
         _serverSequence = null;
 
         if (_scoresMainPanel != null) _scoresMainPanel.DOKill();
+        if (_firstTo5Panel != null) _firstTo5Panel.DOKill();
         if (_gameEndedPanel != null) _gameEndedPanel.DOKill();
-        if (_serverInfo != null) _serverInfo.DOKill();
+        if (_serverGroup != null) _serverGroup.DOKill();
     }
 
-    private static Vector2 WithX(RectTransform rect, float x) => new Vector2(x, rect.anchoredPosition.y);
     private static Vector2 WithY(RectTransform rect, float y) => new Vector2(rect.anchoredPosition.x, y);
 }
